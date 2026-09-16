@@ -1,0 +1,14 @@
+[Unit]
+Description=Load Qualcomm modem/wifi firmware blobs from partitions
+DefaultDependencies=no
+Requires=local-fs.target
+After=local-fs.target
+Before=sysinit.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/msm-firmware-loader.sh
+
+[Install]
+WantedBy=sysinit.target

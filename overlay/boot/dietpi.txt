@@ -1,0 +1,22 @@
+# dietpi-ufi001b -> DietPi first-run configuration (installed onto /boot)
+# Full key reference: https://dietpi.com/docs/dietpi_tools/#software-optimisation
+# WARNING: change AUTO_SETUP_GLOBAL_PASSWORD before giving the device away.
+
+# Run the first-time setup fully automated, no prompts.
+AUTO_SETUP_AUTOMATED=1
+
+# Initial root/dietpi password (also applied to the root account at build time).
+AUTO_SETUP_GLOBAL_PASSWORD=dietpi
+
+AUTO_SETUP_HOSTNAME=dietpi-ufi001b
+AUTO_SETUP_LOCALE=en_US.UTF-8
+AUTO_SETUP_KEYBOARD_LAYOUT=Generic 105-key PC (intl.)
+AUTO_SETUP_TIMEZONE=Asia/Shanghai
+
+# usb0 (192.168.68.1/24 static) is configured by the usb-gadget.service,
+# so keep DietPi's own Ethernet handling out of the way.
+AUTO_SETUP_NET_ETHERNET_ENABLED=0
+AUTO_SETUP_NET_WIFI_ENABLED=1
+
+# Optional: run this hook before the first-boot software installation.
+AUTO_SETUP_CUSTOM_SCRIPT_EXEC=/boot/Automation_Custom_PreScript.sh

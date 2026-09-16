@@ -1,0 +1,18 @@
+# build artifacts
+build/
+out/
+
+# local downloads / images
+*.raw
+*.img
+*.apk
+*.zip
+files/
+
+# python
+__pycache__/
+*.pyc
+
+# editor
+.vscode/
+.idea/
