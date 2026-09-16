@@ -10,6 +10,7 @@ on:
       - 'overlay/**'
       - 'vendor/**'
       - 'build.sh'
+      - '.github/workflows/**'
 
 jobs:
   build:
