@@ -50,4 +50,4 @@ python3 "$SCRIPT_DIR/../tools/make_gpt.py" \
     --info
 
 echo "==> firmware artifacts:"
-ls -l "$BUILD"/files/{rpm,sbl1,tz}.mbn "$BUILD/files/gpt_both0.bin"
+ls -l "$BUILD/files/rpm.mbn" "$BUILD/files/sbl1.mbn" "$BUILD/files/tz.mbn" "$BUILD/files/gpt_both0.bin"

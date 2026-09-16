@@ -46,4 +46,4 @@ python3 "$BUILD/src/qtestsign/qtestsign.py" aboot \
     "$BUILD/src/lk2nd/build-lk1st-msm8916/emmc_appsboot.mbn" \
     -o "$BUILD/files/aboot.mbn"
 
-ls -l "$BUILD"/files/{aboot,hyp}.mbn
+ls -l "$BUILD/files/aboot.mbn" "$BUILD/files/hyp.mbn"

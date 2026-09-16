@@ -23,6 +23,7 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     python3-pycryptodome \
     qemu-user-static \
     systemd-container \
+    unzip \
     wget
 
 update-binfmts --display qemu-aarch64 >/dev/null 2>&1 || true
