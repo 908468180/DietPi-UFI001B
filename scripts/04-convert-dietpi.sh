@@ -55,6 +55,8 @@ if [ ! -d "$DIETPI_SRC/.git" ]; then
     GIT_TERMINAL_PROMPT=0 git clone --depth 1 -b "$GITBRANCH" \
         "https://github.com/${GITOWNER}/DietPi" "$DIETPI_SRC"
 fi
+# The nspawn --bind destination must pre-exist in the container rootfs.
+mkdir -p "$ROOTFS/root/DietPi"
 
 # --- DietPi conversion driver (runs as a systemd oneshot unit inside the
 # container). systemd.run= (kernel-command-line generator) has proven
