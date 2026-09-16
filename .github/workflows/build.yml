@@ -12,6 +12,11 @@ on:
       - 'build.sh'
       - '.github/workflows/**'
 
+# softprops/action-gh-release needs contents: write to create/publish a
+# release and its assets. Default GITHUB_TOKEN is read-only.
+permissions:
+  contents: write
+
 jobs:
   build:
     # DietPi conversion runs inside systemd-nspawn natively (arm64).
