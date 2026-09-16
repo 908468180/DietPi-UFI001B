@@ -26,6 +26,11 @@ jobs:
         env:
           DEBIAN_FRONTEND: noninteractive
 
+      - name: Fix artifact ownership
+        # build.sh runs with sudo, so out/ is root-owned and the runner user
+        # cannot read it for the upload step.
+        run: sudo chown -R runner:runner "$GITHUB_WORKSPACE/out"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
