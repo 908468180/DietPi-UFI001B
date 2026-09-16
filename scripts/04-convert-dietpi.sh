@@ -27,7 +27,10 @@ rm -rf "$ROOTFS"
 mkdir -p "$ROOTFS"
 
 echo "==> debootstrap $DISTRO_RELEASE"
+# minbase omits the init system; --include adds systemd (+systemd-sysv provides
+# /sbin/init) so that systemd-nspawn --boot below has a PID 1 to run.
 debootstrap --variant=minbase --arch arm64 \
+    --include=systemd,systemd-sysv \
     "$DISTRO_RELEASE" "$ROOTFS" "$DEBIAN_MIRROR"
 
 cat > "$ROOTFS/etc/apt/sources.list" <<EOF
