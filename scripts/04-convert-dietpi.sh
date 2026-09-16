@@ -43,6 +43,19 @@ EOF
 # netns, so point it at the host resolver (127.0.0.53 systemd-resolved).
 cp -L /etc/resolv.conf "$ROOTFS/etc/resolv.conf"
 
+# --- Fetch DietPi SOURCE ON THE HOST and bind-mount it into the container.
+# 02-build-bootloader.sh proves plain https git clones to github.com work on
+# the runner host, while git inside the nspawn container spuriously asked for
+# credentials. Cloning on the host also keeps a proper .git checkout for the
+# installer. ---
+DIETPI_SRC="$BUILD/work/dietpi-src"
+if [ ! -d "$DIETPI_SRC/.git" ]; then
+    rm -rf "$DIETPI_SRC"
+    echo "==> cloning DietPi ($GITOWNER/$GITBRANCH) on host"
+    GIT_TERMINAL_PROMPT=0 git clone --depth 1 -b "$GITBRANCH" \
+        "https://github.com/${GITOWNER}/DietPi" "$DIETPI_SRC"
+fi
+
 # --- DietPi conversion driver (runs as a systemd oneshot unit inside the
 # container). systemd.run= (kernel-command-line generator) has proven
 # unreliable on the ubuntu-22.04-arm runner (EXEC/203), so we boot the
@@ -60,11 +73,9 @@ export GITOWNER GITBRANCH IMAGE_CREATOR PREIMAGE_INFO \
        HW_MODEL WIFI_REQUIRED GUEST_NETWORK_REQUIRED DISTRO_TARGET \
        TEST_KERNEL TEST_UBOOT RK35XX_MAINLINE
 
-apt-get update -qq
-apt-get install -y --no-install-recommends git ca-certificates curl
-
-if [ ! -d /root/DietPi ]; then
-    git clone --depth 1 "https://github.com/${GITOWNER}/DietPi"
+if [ ! -d /root/DietPi/.git ]; then
+    echo "ERROR: DietPi checkout not found inside container (bind mount failed)"
+    exit 1
 fi
 cd /root/DietPi
 
@@ -97,6 +108,7 @@ timeout 2400 systemd-nspawn --register=no --keep-unit \
     -D "$ROOTFS" \
     --boot /usr/lib/systemd/systemd \
     --console=pipe \
+    --bind="$DIETPI_SRC:/root/DietPi" \
     -E GITOWNER="$GITOWNER" \
     -E GITBRANCH="$GITBRANCH" \
     -E IMAGE_CREATOR="$IMAGE_CREATOR" \
