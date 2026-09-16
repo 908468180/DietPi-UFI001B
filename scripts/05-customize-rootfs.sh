@@ -73,6 +73,7 @@ tar xkzf "$BUILD/work/$KERNEL_APK" -C "$ROOTFS" \
 echo "==> applying overlay"
 cp -a "$REPO_DIR/overlay/boot/." "$ROOTFS/boot/"
 cp -a "$REPO_DIR/overlay/etc/." "$ROOTFS/etc/"
+cp -a "$REPO_DIR/overlay/usr/." "$ROOTFS/usr/"
 cp "$REPO_DIR/vendor/usr/sbin/msm-firmware-loader.sh" "$ROOTFS/usr/sbin/"
 chmod 0755 "$ROOTFS/usr/sbin/msm-firmware-loader.sh" \
           "$ROOTFS/usr/local/sbin/usb-gadget.sh" \
