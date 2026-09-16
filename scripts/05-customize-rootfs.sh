@@ -18,7 +18,6 @@ ROOTFS="$BUILD/work/rootfs"
 rm -f "$ROOTFS/etc/resolv.conf"
 cp /etc/resolv.conf "$ROOTFS/etc/resolv.conf"
 
-set -x
 mount_chroot() {
     mount -o bind /proc "$ROOTFS/proc" 2>/dev/null || true
     mount -o bind /sys "$ROOTFS/sys" 2>/dev/null || true
