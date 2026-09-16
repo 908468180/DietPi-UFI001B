@@ -170,22 +170,20 @@ def main():
         raise SystemExit("total-sectors too small")
 
     blob = build(args.total_sectors)
-    if args.info:
-        print("disk total sectors :", args.total_sectors)
-        print("last usable LBA    :", blob["last_usable"])
-        print("file size (bytes)  :", len(blob["primary"]) + len(blob["backup_entries"]) + len(blob["backup_header"]))
-        print("%-9s %10s %10s %10s  %s" % ("name", "start", "size", "end", "part-guid"))
-        for meta, ent in zip(blob["entry_meta"], blob["entries"]):
-            name, start, size, _t, pguid = meta
-            print("%-9s %10d %10d %10d  %s" % (name, start, size, start + size - 1, pguid))
-        return
-
     with open(args.output, "wb") as f:
         f.write(blob["primary"])
         f.write(blob["backup_entries"])
         f.write(blob["backup_header"])
     print("wrote %s (%d bytes)" % (args.output,
           len(blob["primary"]) + len(blob["backup_entries"]) + len(blob["backup_header"])))
+    if args.info:
+        print("disk total sectors :", args.total_sectors)
+        print("last usable LBA    :", blob["last_usable"])
+        print("%-9s %10s %10s %10s  %s" % ("name", "start", "size", "end", "part-guid"))
+        for meta, ent in zip(blob["entry_meta"], blob["entries"]):
+            name, start, _size, _t, pguid = meta
+            end = struct.unpack("<Q", ent[40:48])[0]
+            print("%-9s %10d %10d %10d  %s" % (name, start, end - start + 1, end, pguid))
 
 
 if __name__ == "__main__":
