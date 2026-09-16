@@ -60,6 +60,14 @@ fi
 echo "==> staging DietPi checkout into container rootfs"
 rm -rf "$ROOTFS/root/DietPi"
 cp -a "$DIETPI_SRC" "$ROOTFS/root/DietPi"
+# dietpi-installer checks for a physical /boot partition and, seeing none,
+# raises a whiptail "Continue?" prompt that cannot be answered non-interactively.
+# This is the "VM / container build" case the installer itself anticipates; the
+# bootloader is flashed to the UFI001B by flash/flash-all.sh on the PC instead.
+grep -q 'local BOOT_DEVICE=' "$ROOTFS/root/DietPi/.build/images/dietpi-installer" \
+    || { echo "ERROR: BOOT_DEVICE check not found in dietpi-installer"; exit 1; }
+sed -i -E 's/^([[:space:]]*)local BOOT_DEVICE=.*$/\1local BOOT_DEVICE=container-rootfs # dietpi-ufi001b: no physical partition in CI container/' \
+    "$ROOTFS/root/DietPi/.build/images/dietpi-installer"
 
 # --- DietPi conversion driver (runs as a systemd oneshot unit inside the
 # container). systemd.run= (kernel-command-line generator) has proven
