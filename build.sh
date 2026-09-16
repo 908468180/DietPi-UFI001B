@@ -47,6 +47,7 @@ run "rootfs customization"   "$SCRIPT_DIR/05-customize-rootfs.sh"
 run "images"                 "$SCRIPT_DIR/06-build-images.sh"
 
 echo "=== build finished ==="
+cp -a "$BUILD"/files/. "$OUT"/files/
 cd "$OUT"/files && ls -lh
 echo ""
 echo "Flash it: see out/files/README-FLASH and the flash/ directory."
