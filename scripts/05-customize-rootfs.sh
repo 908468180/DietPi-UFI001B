@@ -9,7 +9,8 @@
 . "$SCRIPT_DIR/../config/board.conf"
 
 ROOTFS="$BUILD/work/rootfs"
-[ -d "$ROOTFS/DietPi" ] || { echo "no converted DietPi rootfs at $ROOTFS"; exit 1; }
+[ -d "$ROOTFS/boot/dietpi" ] || [ -d "$ROOTFS/DietPi" ] \
+    || { echo "no converted DietPi rootfs at $ROOTFS"; exit 1; }
 [ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "arm64" ] \
     || { echo "05 requires a native arm64 host"; exit 1; }
 
