@@ -33,7 +33,9 @@ mount_chroot
 trap umount_chroot EXIT
 
 # --- board packages (survive the installer's autoremove purge) ---
-chroot "$ROOTFS" apt-get update -qq
+echo "==> apt update"
+chroot "$ROOTFS" apt-get update
+echo "==> installing board packages"
 chroot "$ROOTFS" apt-get install -y --no-install-recommends \
     ifupdown \
     iproute2 \
@@ -50,7 +52,9 @@ chroot "$ROOTFS" apt-get clean
 rm -rf "$ROOTFS/var/lib/apt/lists"/*
 
 # --- dropbear SSH (no password login from the factory) ---
+echo "==> installing dropbear"
 chroot "$ROOTFS" apt-get install -y --no-install-recommends dropbear
+echo "==> generating dropbear host keys + setting root password"
 chroot "$ROOTFS" /usr/sbin/dropbearkey -t ed25519 \
     -f /etc/dropbear/dropbear_ed25519_host_key 2>/dev/null || true
 chroot "$ROOTFS" /usr/sbin/dropbearkey -t rsa \
@@ -58,10 +62,12 @@ chroot "$ROOTFS" /usr/sbin/dropbearkey -t rsa \
 echo "root:$DIETPI_PASSWORD" | chroot "$ROOTFS" chpasswd
 
 # --- mainline kernel (vmlinuz + dtbs + modules), dtb already patched ---
+echo "==> installing mainline kernel"
 tar xkzf "$BUILD/work/$KERNEL_APK" -C "$ROOTFS" \
     --exclude=.PKGINFO --exclude='.SIGN*'
 
 # --- DietPi / device overlay ---
+echo "==> applying overlay"
 cp -a "$REPO_DIR/overlay/boot/." "$ROOTFS/boot/"
 cp -a "$REPO_DIR/overlay/etc/." "$ROOTFS/etc/"
 cp "$REPO_DIR/vendor/usr/sbin/msm-firmware-loader.sh" "$ROOTFS/usr/sbin/"
@@ -71,6 +77,7 @@ chmod 0755 "$ROOTFS/usr/sbin/msm-firmware-loader.sh" \
           "$ROOTFS/boot/Automation_Custom_Script.sh"
 
 # --- enable board services ---
+echo "==> enabling services"
 chroot "$ROOTFS" systemctl enable usb-gadget.service >/dev/null 2>&1 || true
 chroot "$ROOTFS" systemctl enable msm-firmware-loader.service >/dev/null 2>&1 || true
 

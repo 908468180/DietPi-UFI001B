@@ -92,7 +92,9 @@ echo "==> [dietpi] installer finished OK"
 touch /etc/dietpi-convert.ok
 EOSCRIPT
 
-cat > "$ROOTFS/etc/systemd/system/dietpi-convert.service" <<'EOF'
+# systemd-nspawn -E variables are NOT propagated into services by the
+# container PID1, so the installer env is baked into the unit instead.
+cat > "$ROOTFS/etc/systemd/system/dietpi-convert.service" <<EOF
 [Unit]
 Description=DietPi conversion
 After=systemd-remount-fs.service
@@ -102,6 +104,17 @@ Type=oneshot
 ExecStart=/bin/bash /root/dietpi-convert.sh
 StandardOutput=journal+console
 StandardError=journal+console
+Environment=GITOWNER=$GITOWNER
+Environment=GITBRANCH=$GITBRANCH
+Environment=IMAGE_CREATOR=$IMAGE_CREATOR
+Environment="PREIMAGE_INFO=$PREIMAGE_INFO"
+Environment=HW_MODEL=22
+Environment=WIFI_REQUIRED=1
+Environment=GUEST_NETWORK_REQUIRED=0
+Environment=DISTRO_TARGET=$DISTRO_TARGET
+Environment=TEST_KERNEL=0
+Environment=TEST_UBOOT=0
+Environment=RK35XX_MAINLINE=0
 RemainAfterExit=yes
 
 [Install]
