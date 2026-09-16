@@ -55,8 +55,11 @@ if [ ! -d "$DIETPI_SRC/.git" ]; then
     GIT_TERMINAL_PROMPT=0 git clone --depth 1 -b "$GITBRANCH" \
         "https://github.com/${GITOWNER}/DietPi" "$DIETPI_SRC"
 fi
-# The nspawn --bind destination must pre-exist in the container rootfs.
-mkdir -p "$ROOTFS/root/DietPi"
+# Copy the checkout into the container rootfs (deterministic; the nspawn
+# --bind mount was not visible inside the container on this runner).
+echo "==> staging DietPi checkout into container rootfs"
+rm -rf "$ROOTFS/root/DietPi"
+cp -a "$DIETPI_SRC" "$ROOTFS/root/DietPi"
 
 # --- DietPi conversion driver (runs as a systemd oneshot unit inside the
 # container). systemd.run= (kernel-command-line generator) has proven
@@ -76,7 +79,9 @@ export GITOWNER GITBRANCH IMAGE_CREATOR PREIMAGE_INFO \
        TEST_KERNEL TEST_UBOOT RK35XX_MAINLINE
 
 if [ ! -d /root/DietPi/.git ]; then
-    echo "ERROR: DietPi checkout not found inside container (bind mount failed)"
+    echo "ERROR: DietPi checkout not found inside container"
+    ls -la /root/ 2>&1 || true
+    ls -la /root/DietPi/ 2>&1 | head -5 || true
     exit 1
 fi
 cd /root/DietPi
@@ -110,7 +115,6 @@ timeout 2400 systemd-nspawn --register=no --keep-unit \
     -D "$ROOTFS" \
     --boot /usr/lib/systemd/systemd \
     --console=pipe \
-    --bind="$DIETPI_SRC:/root/DietPi" \
     -E GITOWNER="$GITOWNER" \
     -E GITBRANCH="$GITBRANCH" \
     -E IMAGE_CREATOR="$IMAGE_CREATOR" \
