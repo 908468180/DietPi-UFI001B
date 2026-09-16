@@ -43,12 +43,16 @@ EOF
 # netns, so point it at the host resolver (127.0.0.53 systemd-resolved).
 cp -L /etc/resolv.conf "$ROOTFS/etc/resolv.conf"
 
-# --- DietPi conversion driver (runs as PID1 command inside the container) ---
+# --- DietPi conversion driver (runs as a systemd oneshot unit inside the
+# container). systemd.run= (kernel-command-line generator) has proven
+# unreliable on the ubuntu-22.04-arm runner (EXEC/203), so we boot the
+# container normally and select our unit via the default-unit parameter. ---
 cat > "$ROOTFS/root/dietpi-convert.sh" <<'EOSCRIPT'
 #!/bin/bash
 set -e
 export DEBIAN_FRONTEND=noninteractive
 export DEBCONF_NONINTERACTIVE_SEEN=true
+trap 'systemctl poweroff || true' EXIT
 echo "==> [dietpi] inside container: $(uname -m) $(cat /etc/debian_version)"
 
 # DietPi build flags are read from the environment by the installer.
@@ -67,11 +71,29 @@ cd /root/DietPi
 echo "==> [dietpi] running dietpi-installer (HW_MODEL=$HW_MODEL)"
 bash ./.build/images/dietpi-installer
 echo "==> [dietpi] installer finished OK"
+touch /etc/dietpi-convert.ok
 EOSCRIPT
+
+cat > "$ROOTFS/etc/systemd/system/dietpi-convert.service" <<'EOF'
+[Unit]
+Description=DietPi conversion
+After=systemd-remount-fs.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /root/dietpi-convert.sh
+StandardOutput=journal+console
+StandardError=journal+console
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 chmod +x "$ROOTFS/root/dietpi-convert.sh"
 
 echo "==> systemd-nspawn: booting DietPi conversion"
-systemd-nspawn --register=no --keep-unit \
+timeout 2400 systemd-nspawn --register=no --keep-unit \
     -D "$ROOTFS" \
     --boot /usr/lib/systemd/systemd \
     --console=pipe \
@@ -86,10 +108,11 @@ systemd-nspawn --register=no --keep-unit \
     -E TEST_KERNEL=0 \
     -E TEST_UBOOT=0 \
     -E RK35XX_MAINLINE=0 \
-    "systemd.run=1" \
-    "systemd.run_command=/root/dietpi-convert.sh" \
-    "systemd.run_success_action=exit" \
-    "systemd.run_failure_action=exit"
+    "systemd.unit=dietpi-convert.service"
 
+if [ ! -f "$ROOTFS/etc/dietpi-convert.ok" ]; then
+    echo "ERROR: DietPi conversion did not complete successfully"
+    exit 1
+fi
 echo "==> DietPi conversion complete"
 ls -d "$ROOTFS"/DietPi 2>/dev/null || true
