@@ -35,7 +35,7 @@ mkdir -p "$BUILD" "$OUT/files"
 
 run() { # name, script
     echo "--- [$(basename "$2")] $1"
-    "$2"
+    "$2" || { echo "ERROR: $1 failed (exit $?)"; exit 1; }
     echo ""
 }
 
