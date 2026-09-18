@@ -9,6 +9,7 @@ on:
       - 'tools/**'
       - 'overlay/**'
       - 'vendor/**'
+      - 'flash/**'
       - 'build.sh'
       - '.github/workflows/**'
 
