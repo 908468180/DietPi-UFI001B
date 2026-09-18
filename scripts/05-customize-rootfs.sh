@@ -87,19 +87,6 @@ chroot "$ROOTFS" systemctl enable usb-gadget.service >/dev/null 2>&1 || true
 chroot "$ROOTFS" systemctl enable msm-firmware-loader.service >/dev/null 2>&1 || true
 chroot "$ROOTFS" systemctl enable dnsmasq.service >/dev/null 2>&1 || true
 
-# --- patch DietPi to skip first-run network check ---
-echo "==> patching DietPi to skip network check"
-DIETPI_DIR="$ROOTFS/boot/dietpi"
-# Override G_CHECK_NET/G_CHECK_URL at END of dietpi-globals (last definition wins in bash)
-if [ -f "$DIETPI_DIR/dietpi-globals" ]; then
-    echo '' >> "$DIETPI_DIR/dietpi-globals"
-    echo '# Offline mode: skip network/URL checks' >> "$DIETPI_DIR/dietpi-globals"
-    echo 'G_CHECK_NET(){ return 0; }' >> "$DIETPI_DIR/dietpi-globals"
-    echo 'G_CHECK_URL(){ return 0; }' >> "$DIETPI_DIR/dietpi-globals"
-fi
-# Disable automated setup to avoid interactive prompts
-sed -i 's/^AUTO_SETUP_AUTOMATED=1/AUTO_SETUP_AUTOMATED=0/' "$ROOTFS/boot/dietpi.txt" 2>/dev/null || true
-
 # --- WCNSS WiFi firmware ---
 echo "==> installing WCNSS firmware"
 mkdir -p "$ROOTFS/lib/firmware"

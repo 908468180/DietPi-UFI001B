@@ -5,9 +5,6 @@
 # Run the first-time setup fully automated, no prompts.
 AUTO_SETUP_AUTOMATED=1
 
-# Skip network check on first boot (USB RNDIS only, no internet at this stage).
-AUTO_SETUP_BOOT_WAIT_FOR_NETWORK=0
-
 # Initial root/dietpi password (also applied to the root account at build time).
 AUTO_SETUP_GLOBAL_PASSWORD=dietpi
 
