@@ -5,44 +5,41 @@ on:
   push:
     paths:
       - 'config/**'
-      - 'scripts/**'
-      - 'tools/**'
       - 'overlay/**'
       - 'vendor/**'
       - 'flash/**'
       - 'build.sh'
       - '.github/workflows/**'
 
-# softprops/action-gh-release needs contents: write to create/publish a
-# release and its assets. Default GITHUB_TOKEN is read-only.
 permissions:
   contents: write
 
 jobs:
   build:
-    # DietPi conversion runs inside systemd-nspawn natively (arm64).
     runs-on: ubuntu-22.04-arm
     timeout-minutes: 120
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build
+      - name: Install dependencies
         run: |
-          sudo bash ./build.sh
+          sudo apt-get update
+          sudo apt-get install -y debootstrap qemu-user-static
+
+      - name: Build
+        run: sudo bash ./build.sh
         env:
           DEBIAN_FRONTEND: noninteractive
 
       - name: Fix artifact ownership
-        # build.sh runs with sudo, so out/ is root-owned and the runner user
-        # cannot read it for the upload step.
         run: sudo chown -R runner:runner "$GITHUB_WORKSPACE/out"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dietpi-ufi001b
-          path: out/files/
+          name: debian-ufi001b
+          path: out/
           if-no-files-found: error
 
   release:
@@ -53,10 +50,10 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: dietpi-ufi001b
-          path: out/files/
+          name: debian-ufi001b
+          path: out/
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          files: out/files/*
+          files: out/*
           generate_release_notes: true

@@ -1,54 +1,92 @@
-#!/bin/bash -e
-# build.sh - dietpi-ufi001b orchestrator.
-# rebuild
-#
-# Produces a flash package in out/files/:
-#   aboot.mbn hyp.mbn (custom bootloader)  rpm/sbl1/tz.mbn (stock)
-#   gpt_both0.bin     boot.bin rootfs.bin (sparse)          SHA256SUMS
-#
-# REQUIRES a native arm64 host (GitHub Actions ubuntu-22.04-arm,
-# or an arm64 CI/self-hosted machine).
+#!/bin/bash
+set -euo pipefail
+# ============================================================================
+# debian-ufi001b: Minimal Debian for UFI001B (MSM8916 4G USB dongle)
+# ============================================================================
+# Features:
+#   - USB RNDIS/ECM with DHCP (192.168.68.1)
+#   - WiFi STA/AP via WCNSS
+#   - SSH (dropbear)
+#   - No DietPi, minimal
+# ============================================================================
 
-cd "$(dirname "$0")"
-REPO_DIR="$PWD"
-SCRIPT_DIR="$REPO_DIR/scripts"
-export SCRIPT_DIR REPO_DIR
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+BUILD="$SCRIPT_DIR/build"
+ROOTFS="$BUILD/rootfs"
+OUT="$SCRIPT_DIR/out"
 
-. config/build.conf
-. config/board.conf
+. "$SCRIPT_DIR/config/build.conf"
 
-BUILD="$PWD/build"
-OUT="$PWD/out"
-export BUILD OUT
+echo "==> debian-ufi001b ($DISTRO/$ARCH)"
 
-# Add the DietPi first-run password to build.conf defaults if not set.
-DIETPI_PASSWORD=${DIETPI_PASSWORD:-dietpi}
-export DIETPI_PASSWORD
+# --- clean ---
+rm -rf "$BUILD"
+mkdir -p "$BUILD" "$OUT"
 
-echo "=== dietpi-ufi001b build ==="
-echo "board:          $BOARD_NAME ($BOARD)"
-echo "kernel dtb:     $KERNEL_DTB (cpu ${CPU_OPP_MHZ}MHz, release_memory=${RELEASE_MEMORY})"
-echo "archive:        out/files/"
-echo ""
+# --- debootstrap ---
+echo "==> bootstrap"
+debootstrap --arch="$ARCH" --foreign "$DISTRO" "$ROOTFS" \
+    http://deb.debian.org/debian
 
-rm -rf "$OUT"
-mkdir -p "$BUILD" "$OUT/files"
+cp /usr/bin/qemu-aarch64-static "$ROOTFS/usr/bin/"
+chroot "$ROOTFS" /debootstrap/debootstrap --second-stage
+rm -f "$ROOTFS/usr/bin/qemu-aarch64-static"
 
-run() { # name, script
-    echo "--- [$(basename "$2")] $1"
-    "$2" || { echo "ERROR: $1 failed (exit $?)"; exit 1; }
-    echo ""
-}
+# --- apt sources ---
+cat > "$ROOTFS/etc/apt/sources.list" << EOF
+deb http://deb.debian.org/debian $DISTRO main contrib non-free non-free-firmware
+deb http://deb.debian.org/debian $DISTRO-updates main contrib non-free non-free-firmware
+deb http://security.debian.org/debian-security $DISTRO-security main contrib non-free non-free-firmware
+EOF
 
-run "deps"                   "$SCRIPT_DIR/01-deps.sh"
-run "bootloader"             "$SCRIPT_DIR/02-build-bootloader.sh"
-run "firmware/gpt/dtb"       "$SCRIPT_DIR/03-fetch-firmware.sh"
-run "dietpi conversion"      "$SCRIPT_DIR/04-convert-dietpi.sh"
-run "rootfs customization"   "$SCRIPT_DIR/05-customize-rootfs.sh"
-run "images"                 "$SCRIPT_DIR/06-build-images.sh"
+# --- packages ---
+echo "==> packages"
+chroot "$ROOTFS" apt-get update
+chroot "$ROOTFS" apt-get install -y --no-install-recommends \
+    bash-completion ca-certificates curl \
+    dnsmasq dropbear ethtool fonts-wqy-zenhei ifupdown \
+    iproute2 iw kmod locales nano net-tools \
+    procps sudo systemd-timesyncd udev usbutils wget
 
-echo "=== build finished ==="
-cp -a "$BUILD"/files/. "$OUT"/files/
-cd "$OUT"/files && ls -lh
-echo ""
-echo "Flash it: see out/files/README-FLASH and the flash/ directory."
+# --- locale ---
+sed -i 's/# en_US.UTF-8/en_US.UTF-8/' "$ROOTFS/etc/locale.gen"
+chroot "$ROOTFS" locale-gen
+echo "LANG=en_US.UTF-8" > "$ROOTFS/etc/default/locale"
+
+# --- root password ---
+echo "root:root" | chroot "$ROOTFS" chpasswd
+
+# --- hostname ---
+echo "ufi001b" > "$ROOTFS/etc/hostname"
+
+# --- overlay ---
+echo "==> overlay"
+cp -a "$SCRIPT_DIR/overlay/." "$ROOTFS/"
+
+# --- firmware ---
+echo "==> firmware"
+mkdir -p "$ROOTFS/lib/firmware/wlan/prima"
+cp "$SCRIPT_DIR/vendor/lib/firmware/wcnss"*.mdt "$ROOTFS/lib/firmware/" 2>/dev/null || true
+cp "$SCRIPT_DIR/vendor/lib/firmware/wcnss"*.b* "$ROOTFS/lib/firmware/" 2>/dev/null || true
+cp "$SCRIPT_DIR/vendor/lib/firmware/wlan/prima/WCNSS_qcom_wlan_nv.bin" \
+    "$ROOTFS/lib/firmware/wlan/prima/" 2>/dev/null || true
+
+# --- iwlist wrapper ---
+install -m 0755 /dev/stdin "$ROOTFS/usr/local/bin/iwlist" << 'EOF'
+#!/bin/sh
+IFACE=""
+for arg in "$@"; do case "$arg" in wlan*|wl*) IFACE="$arg" ;; esac; done
+[ -z "$IFACE" ] && { echo "Usage: iwlist <iface> scan"; exit 1; }
+iw dev "$IFACE" scan 2>/dev/null | perl -pe 's/\\x([0-9a-fA-F]{2})/chr(hex($1))/ge' \
+    | awk '/BSS /{b=substr($2,1,17);n++}/freq:/{f=$2}/signal:/{s=$2}/SSID:/{printf "Cell %d - %s  Freq:%s  Signal:%s  ESSID:\"%s\"\n",n,b,f,s,substr($0,index($0,": ")+2)}'
+EOF
+
+# --- services ---
+chroot "$ROOTFS" systemctl enable ssh 2>/dev/null || true
+
+# --- finalize ---
+: > "$ROOTFS/root/.bash_history"
+rm -rf "$ROOTFS/tmp"/*
+
+echo "==> done"
+du -sh "$ROOTFS"

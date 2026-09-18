@@ -1,18 +1,14 @@
-# build artifacts
+# Build output
 build/
 out/
 
-# local downloads / images
-*.raw
-*.img
-*.apk
-*.zip
-files/
-
-# python
+# Python
 __pycache__/
 *.pyc
 
-# editor
+# Editor
+*.swp
+*.swo
+*~
 .vscode/
 .idea/
