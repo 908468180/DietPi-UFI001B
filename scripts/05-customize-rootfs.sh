@@ -87,6 +87,12 @@ chroot "$ROOTFS" systemctl enable usb-gadget.service >/dev/null 2>&1 || true
 chroot "$ROOTFS" systemctl enable msm-firmware-loader.service >/dev/null 2>&1 || true
 chroot "$ROOTFS" systemctl enable dnsmasq.service >/dev/null 2>&1 || true
 
+# --- WCNSS WiFi firmware ---
+echo "==> installing WCNSS firmware"
+mkdir -p "$ROOTFS/lib/firmware"
+cp "$REPO_DIR/vendor/lib/firmware/wcnss"*.mdt "$ROOTFS/lib/firmware/" 2>/dev/null || true
+cp "$REPO_DIR/vendor/lib/firmware/wcnss"*.b* "$ROOTFS/lib/firmware/" 2>/dev/null || true
+
 # --- tidy up ---
 rm -f "$ROOTFS/usr/bin/qemu-aarch64-static" "$ROOTFS/root/dietpi-convert.sh"
 : > "$ROOTFS/root/.bash_history"
