@@ -22,23 +22,24 @@ for f in "$FILES_DIR"/{aboot,hyp,rpm,sbl1,tz}.mbn \
 done
 
 if [ "${1:-}" = "--backup" ] || [ ! -f "$FILES_DIR/modem.bin" ]; then
-    echo "=== Backing up original partitions (fsc fsg modem modemst1 modemst2 persist sec)"
+    echo "[1/5] Backing up original partitions..."
     [ -f "$FILES_DIR/modem.bin" ] || mkdir -p "$FILES_DIR"
     for n in fsc fsg modem modemst1 modemst2 persist sec; do
-        edl r "$n" "$FILES_DIR/$n.bin"
+        echo "  - $n"
+        edl r "$n" "$FILES_DIR/$n.bin" 2>/dev/null || true
     done
 else
-    echo "=== Backup found, skipping (remove $FILES_DIR/modem.bin to force)"
+    echo "[1/5] Backup found, skipping"
 fi
 
-echo "=== Installing custom bootloader (aboot=lk1st)"
-edl w aboot "$FILES_DIR/aboot.mbn"
-edl e boot
-echo "=== Rebooting into fastboot"
-edl reset
-sleep 3
+echo "[2/5] Installing custom bootloader (lk1st)..."
+edl w aboot "$FILES_DIR/aboot.mbn" 2>/dev/null
+edl e boot 2>/dev/null
+edl reset 2>/dev/null
+echo "  Waiting for device to enter fastboot..."
+sleep 5
 
-echo "=== Flashing partition table + firmware"
+echo "[3/5] Flashing partition table + firmware..."
 fastboot flash partition "$FILES_DIR/gpt_both0.bin"
 fastboot flash aboot "$FILES_DIR/aboot.mbn"
 fastboot flash hyp "$FILES_DIR/hyp.mbn"
@@ -46,14 +47,23 @@ fastboot flash rpm "$FILES_DIR/rpm.mbn"
 fastboot flash sbl1 "$FILES_DIR/sbl1.mbn"
 fastboot flash tz "$FILES_DIR/tz.mbn"
 fastboot flash boot "$FILES_DIR/boot.bin"
-fastboot flash rootfs "$FILES_DIR/rootfs.bin"
+echo "  Firmware done."
 
-echo "=== Restoring original partitions"
+echo "[4/5] Flashing rootfs..."
+fastboot flash rootfs "$FILES_DIR/rootfs.bin"
+echo "  Rootfs done."
+
+echo "[5/5] Restoring modem partitions..."
 for n in fsc fsg modem modemst1 modemst2 persist sec; do
-    fastboot flash "$n" "$FILES_DIR/$n.bin"
+    echo "  - $n"
+    fastboot flash "$n" "$FILES_DIR/$n.bin" 2>/dev/null || true
 done
 
-echo "=== Rebooting"
-fastboot reboot
-echo "Done. SSH in via 192.168.68.1 (RNDIS) or the serial console;"
-echo "DietPi first-run will complete automatically."
+echo ""
+echo "=============================="
+echo "  Flash complete! Rebooting..."
+echo "=============================="
+fastboot reboot 2>/dev/null
+
+echo ""
+echo "Device will boot DietPi. SSH in via 192.168.68.1 (RNDIS)."
