@@ -1,5 +1,6 @@
 #!/bin/bash -e
 # build.sh - dietpi-ufi001b orchestrator.
+# rebuild
 #
 # Produces a flash package in out/files/:
 #   aboot.mbn hyp.mbn (custom bootloader)  rpm/sbl1/tz.mbn (stock)
