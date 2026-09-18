@@ -39,9 +39,11 @@ echo "==> apt update"
 chroot "$ROOTFS" apt-get update
 echo "==> installing board packages"
 chroot "$ROOTFS" apt-get install -y --no-install-recommends \
+    dnsmasq \
     ifupdown \
     iproute2 \
     kmod \
+    locales \
     modemmanager \
     procps \
     qrtr-tools \
@@ -50,6 +52,22 @@ chroot "$ROOTFS" apt-get install -y --no-install-recommends \
     udev \
     usbutils \
     wget
+chroot "$ROOTFS" apt-get clean
+rm -rf "$ROOTFS/var/lib/apt/lists"/*
+
+# --- Chinese locale ---
+echo "==> generating zh_CN.UTF-8 locale"
+chroot "$ROOTFS" sed -i 's/# en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen 2>/dev/null || true
+chroot "$ROOTFS" sed -i 's/# zh_CN.UTF-8/zh_CN.UTF-8/' /etc/locale.gen 2>/dev/null || true
+chroot "$ROOTFS" locale-gen zh_CN.UTF-8 2>/dev/null || true
+chroot "$ROOTFS" update-locale LANG=zh_CN.UTF-8 LC_ALL=zh_CN.UTF-8 2>/dev/null || true
+
+# --- Chinese fonts ---
+echo "==> installing Chinese fonts"
+chroot "$ROOTFS" apt-get update
+chroot "$ROOTFS" apt-get install -y --no-install-recommends \
+    fonts-noto-cjk \
+    fonts-wqy-zenhei 2>/dev/null || true
 chroot "$ROOTFS" apt-get clean
 rm -rf "$ROOTFS/var/lib/apt/lists"/*
 
@@ -83,6 +101,7 @@ chmod 0755 "$ROOTFS/usr/sbin/msm-firmware-loader.sh" \
 echo "==> enabling services"
 chroot "$ROOTFS" systemctl enable usb-gadget.service >/dev/null 2>&1 || true
 chroot "$ROOTFS" systemctl enable msm-firmware-loader.service >/dev/null 2>&1 || true
+chroot "$ROOTFS" systemctl enable dnsmasq.service >/dev/null 2>&1 || true
 
 # --- tidy up ---
 rm -f "$ROOTFS/usr/bin/qemu-aarch64-static" "$ROOTFS/root/dietpi-convert.sh"
