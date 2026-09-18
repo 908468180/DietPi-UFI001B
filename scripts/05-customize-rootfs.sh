@@ -96,6 +96,16 @@ cp "$REPO_DIR/vendor/lib/firmware/wcnss"*.b* "$ROOTFS/lib/firmware/" 2>/dev/null
 mkdir -p "$ROOTFS/lib/firmware/wlan/prima"
 cp "$REPO_DIR/vendor/lib/firmware/wlan/prima/WCNSS_qcom_wlan_nv.bin" "$ROOTFS/lib/firmware/wlan/prima/" 2>/dev/null || true
 
+# --- patch DietPi WiFi scan to decode hex-encoded SSIDs (iwlist bug) ---
+echo "==> patching DietPi WiFi scan for Chinese SSID support"
+# iwlist outputs non-ASCII SSIDs as \xNN hex escapes. Create a wrapper that decodes them.
+cat > "$ROOTFS/usr/local/bin/iwlist" << 'IWLIST wrapper'
+#!/bin/sh
+# iwlist wrapper: decode \xNN hex escapes in ESSID output
+/sbin/iwlist "$@" | perl -pe 's/\\x([0-9a-fA-F]{2})/chr(hex($1))/ge'
+IWLIST wrapper
+chmod 0755 "$ROOTFS/usr/local/bin/iwlist"
+
 # --- tidy up ---
 rm -f "$ROOTFS/usr/bin/qemu-aarch64-static" "$ROOTFS/root/dietpi-convert.sh"
 : > "$ROOTFS/root/.bash_history"
