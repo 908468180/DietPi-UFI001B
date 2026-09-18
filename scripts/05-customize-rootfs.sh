@@ -98,12 +98,34 @@ cp "$REPO_DIR/vendor/lib/firmware/wlan/prima/WCNSS_qcom_wlan_nv.bin" "$ROOTFS/li
 
 # --- patch DietPi WiFi scan to decode hex-encoded SSIDs (iwlist bug) ---
 echo "==> patching DietPi WiFi scan for Chinese SSID support"
-# iwlist outputs non-ASCII SSIDs as \xNN hex escapes. Create a wrapper that decodes them.
-cat > "$ROOTFS/usr/local/bin/iwlist" << 'IWLIST wrapper'
+WIFIDB="$ROOTFS/boot/dietpi/func/dietpi-wifidb"
+if [ -f "$WIFIDB" ]; then
+    perl -i -pe 's{(iw dev "\$wifi_iface" scan)}{$1 | perl -pe "s/\\x([0-9a-fA-F]{2})/chr(hex(\$1))/ge"}' "$WIFIDB"
+fi
+# iwlist wrapper as fallback for scripts that use iwlist directly
+cat > "$ROOTFS/usr/local/bin/iwlist" << 'IWEOF'
 #!/bin/sh
-# iwlist wrapper: decode \xNN hex escapes in ESSID output
-/sbin/iwlist "$@" | perl -pe 's/\\x([0-9a-fA-F]{2})/chr(hex($1))/ge'
-IWLIST wrapper
+IFACE=""
+for arg in "$@"; do
+    case "$arg" in
+        wlan*|eth*|wl*) IFACE="$arg" ;;
+    esac
+done
+[ -z "$IFACE" ] && { echo "Usage: iwlist <interface> scan"; exit 1; }
+/sbin/iw dev "$IFACE" scan 2>/dev/null | perl -pe 's/\\x([0-9a-fA-F]{2})/chr(hex($1))/ge' | awk '
+/BSS / { bssid=substr($2,1,17); num++ }
+/freq:/ { freq=$2 }
+/signal:/ { sig=$2 }
+/SSID:/ {
+    ssid=substr($0, index($0,": ")+2)
+    printf "          Cell %d - %s\n", num, bssid
+    printf "                    Frequency:%s GHz\n", freq
+    printf "                    Quality=%s Signal level=%s dBm\n", sig, sig
+    printf "                    ESSID:\"%s\"\n", ssid
+}
+'
+exit 0
+IWEOF
 chmod 0755 "$ROOTFS/usr/local/bin/iwlist"
 
 # --- tidy up ---
