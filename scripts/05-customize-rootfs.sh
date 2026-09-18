@@ -87,6 +87,13 @@ chroot "$ROOTFS" systemctl enable usb-gadget.service >/dev/null 2>&1 || true
 chroot "$ROOTFS" systemctl enable msm-firmware-loader.service >/dev/null 2>&1 || true
 chroot "$ROOTFS" systemctl enable dnsmasq.service >/dev/null 2>&1 || true
 
+# --- patch DietPi to skip first-run network check ---
+echo "==> patching DietPi to skip first-run"
+# Remove the first-run flag so DietPi skips the entire first-boot setup
+rm -f "$ROOTFS/boot/dietpi/.dietpi-first-run"
+# Also disable automated setup to avoid interactive prompts
+sed -i 's/^AUTO_SETUP_AUTOMATED=1/AUTO_SETUP_AUTOMATED=0/' "$ROOTFS/boot/dietpi.txt" 2>/dev/null || true
+
 # --- WCNSS WiFi firmware ---
 echo "==> installing WCNSS firmware"
 mkdir -p "$ROOTFS/lib/firmware"
