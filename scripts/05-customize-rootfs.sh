@@ -89,9 +89,10 @@ chroot "$ROOTFS" systemctl enable dnsmasq.service >/dev/null 2>&1 || true
 
 # --- patch DietPi to skip first-run network check ---
 echo "==> patching DietPi to skip first-run"
-# Remove the first-run flag so DietPi skips the entire first-boot setup
-rm -f "$ROOTFS/boot/dietpi/.dietpi-first-run"
-# Also disable automated setup to avoid interactive prompts
+# Set install stage to 2 to skip update and install steps (official workaround)
+mkdir -p "$ROOTFS/boot/dietpi"
+echo "2" > "$ROOTFS/boot/dietpi/.install_stage"
+# Disable automated setup to avoid interactive prompts
 sed -i 's/^AUTO_SETUP_AUTOMATED=1/AUTO_SETUP_AUTOMATED=0/' "$ROOTFS/boot/dietpi.txt" 2>/dev/null || true
 
 # --- WCNSS WiFi firmware ---
