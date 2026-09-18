@@ -92,6 +92,8 @@ echo "==> installing WCNSS firmware"
 mkdir -p "$ROOTFS/lib/firmware"
 cp "$REPO_DIR/vendor/lib/firmware/wcnss"*.mdt "$ROOTFS/lib/firmware/" 2>/dev/null || true
 cp "$REPO_DIR/vendor/lib/firmware/wcnss"*.b* "$ROOTFS/lib/firmware/" 2>/dev/null || true
+mkdir -p "$ROOTFS/lib/firmware/wlan/prima"
+cp "$REPO_DIR/vendor/lib/firmware/wlan/prima/WCNSS_qcom_wlan_nv.bin" "$ROOTFS/lib/firmware/wlan/prima/" 2>/dev/null || true
 
 # --- tidy up ---
 rm -f "$ROOTFS/usr/bin/qemu-aarch64-static" "$ROOTFS/root/dietpi-convert.sh"
