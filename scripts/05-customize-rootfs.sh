@@ -40,6 +40,7 @@ chroot "$ROOTFS" apt-get update
 echo "==> installing board packages"
 chroot "$ROOTFS" apt-get install -y --no-install-recommends \
     dnsmasq \
+    fonts-wqy-zenhei \
     ifupdown \
     iproute2 \
     kmod \
