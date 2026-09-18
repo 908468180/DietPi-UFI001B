@@ -55,12 +55,14 @@ chroot "$ROOTFS" apt-get install -y --no-install-recommends \
 chroot "$ROOTFS" apt-get clean
 rm -rf "$ROOTFS/var/lib/apt/lists"/*
 
-# --- Chinese locale ---
-echo "==> generating zh_CN.UTF-8 locale"
-chroot "$ROOTFS" sed -i 's/# en_US.UTF-8/en_US.UTF-8/' /etc/locale.gen 2>/dev/null || true
-chroot "$ROOTFS" sed -i 's/# zh_CN.UTF-8/zh_CN.UTF-8/' /etc/locale.gen 2>/dev/null || true
-chroot "$ROOTFS" locale-gen zh_CN.UTF-8 2>/dev/null || true
-chroot "$ROOTFS" update-locale LANG=zh_CN.UTF-8 LC_ALL=zh_CN.UTF-8 2>/dev/null || true
+# --- Chinese locale (pre-configure so first boot is already Chinese) ---
+echo "==> setting Chinese locale via dietpi-set_software"
+chroot "$ROOTFS" /boot/dietpi/func/dietpi-set_software locale zh_CN.UTF-8 2>/dev/null || {
+    echo "==> fallback: manual locale generation"
+    chroot "$ROOTFS" sed -i 's/# zh_CN.UTF-8/zh_CN.UTF-8/' /etc/locale.gen 2>/dev/null || true
+    chroot "$ROOTFS" locale-gen zh_CN.UTF-8 2>/dev/null || true
+    chroot "$ROOTFS" update-locale LANG=zh_CN.UTF-8 LC_ALL=zh_CN.UTF-8 2>/dev/null || true
+}
 
 # --- Chinese fonts ---
 echo "==> installing Chinese fonts"
