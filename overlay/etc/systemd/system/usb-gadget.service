@@ -1,5 +1,5 @@
 [Unit]
-Description=UFI001B USB RNDIS/ECM gadget and usb0 static address
+Description=UFI001B USB RNDIS gadget and usb0 static address
 After=network-pre.target
 Before=network.target
 

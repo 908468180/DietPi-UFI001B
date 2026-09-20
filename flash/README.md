@@ -75,9 +75,9 @@ Scripts that run steps 1-4: `flash-all.sh` (Linux/macOS) and
 
 - lk1st loads `/boot/extlinux/extlinux.conf` from the ext2 boot partition,
   boots the 6.6 mainline kernel with `msm8916-thwc-ufi001c.dtb`.
-- First boot runs the **DietPi first-run setup fully automatically**
+- First boot runs the **interactive DietPi first-run setup**
   (~2-5 minutes), then reboots.
-- USB: plug the stick into a PC -> RNDIS (or ECM) interface `usb0`
+- USB: plug the stick into a PC -> RNDIS interface `usb0`
   `192.168.68.1/24`. SSH: `ssh root@192.168.68.1` (password `dietpi`,
   change it in `/boot/dietpi.txt` first!).
 - Serial console: `ttyMSM0` 115200.
