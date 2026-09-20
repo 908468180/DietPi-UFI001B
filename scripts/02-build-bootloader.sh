@@ -32,6 +32,24 @@ if ! grep -q 'USE_TARGET_HS200_CAPS' "$BUILD/src/lk2nd/project/lk1st-msm8916.mk"
     echo 'DEFINES += USE_TARGET_HS200_CAPS=1' >> "$BUILD/src/lk2nd/project/lk1st-msm8916.mk"
 fi
 
+# --- lk2nd-rproc (runtime memory release) ---
+# Ports lk2nd-rproc.c (commit 64d3c6c) onto the current DEV_TREE_UPDATE() hook.
+# It disables the modem remoteproc and deletes its /reserved-memory carve-out
+# right before the kernel is started, so the modem RAM becomes general RAM.
+mkdir -p "$BUILD/src/lk2nd/lk2nd/rproc"
+cp "$SCRIPT_DIR/../tools/lk2nd-rproc/lk2nd-rproc.c" \
+    "$BUILD/src/lk2nd/lk2nd/rproc/lk2nd-rproc.c"
+if ! grep -q 'rproc/lk2nd-rproc.o' "$BUILD/src/lk2nd/lk2nd/rules.mk"; then
+    echo 'OBJS += $(LOCAL_DIR)/rproc/lk2nd-rproc.o' >> "$BUILD/src/lk2nd/lk2nd/rules.mk"
+fi
+# RELEASE_MEMORY=1 -> RPROC_MODE_NO_MODEM (free the modem carve-out at runtime).
+if [ "$RELEASE_MEMORY" = "1" ]; then
+    if ! grep -q 'LK2ND_RPROC_MODE' "$BUILD/src/lk2nd/project/lk1st-msm8916.mk"; then
+        echo 'DEFINES += LK2ND_RPROC_MODE=RPROC_MODE_NO_MODEM' \
+            >> "$BUILD/src/lk2nd/project/lk1st-msm8916.mk"
+    fi
+fi
+
 make -C "$BUILD/src/lk2nd" \
     LK2ND_BUNDLE_DTB="$LK1ST_BUNDLE_DTB" \
     LK2ND_COMPATIBLE="$LK1ST_COMPATIBLE" \

@@ -71,11 +71,11 @@ it!).
 | file | knob | default | meaning |
 |---|---|---|---|
 | `config/board.conf` | `CPU_OPP_MHZ` | `1200` | CPU OPP target; `0` = stock (998.4 MHz) |
-| | `RELEASE_MEMORY` | `1` | drop modem reserved memory (~85 MiB to RAM) |
+| | `RELEASE_MEMORY` | `1` | free the modem carve-out (~85 MiB to RAM): static DTB patch **and** runtime disable by the ported lk2nd-rproc module in lk1st |
 | | `USB_GADGET` | `2` | `0` off, `1` ECM, `2` RNDIS (OpenStick mode) |
 | | `USB_GADGET_IP` | `192.168.68.1/24` | gadget static address |
 | | `DISK_TOTAL_SECTORS` | `7569375` | eMMC geometry |
-| | `LK1ST_COMPATIBLE` | `yiming,uz801-v3` | lk1st device match |
+| | `LK1ST_COMPATIBLE` | `thwc,ufi001c` | lk1st device match |
 | | `LK1ST_BUNDLE_DTB` | `msm8916-512mb-mtp.dtb` | lk1st bundled DTB |
 | `config/build.conf` | `DISTRO_TARGET` | `7` | DietPi distro (7=bookworm) |
 | | `KERNEL_APK` | ...`6.6-r5.apk` | mainline kernel package |
@@ -92,7 +92,8 @@ Same build with a different DTB / compatible: set `KERNEL_DTB`
 ```
 scripts/      01..06 build steps (deps, bootloader, firmware+dtb, dietpi,
               customize, images)
-tools/        make_gpt.py (partition table), patch_dtb.py (DTB surgery)
+tools/        make_gpt.py (partition table), patch_dtb.py (DTB surgery),
+              lk2nd-rproc/ (ported lk2nd-rproc.c, runtime memory release)
 overlay/      files installed onto the rootfs (extlinux.conf, dietpi.txt,
               usb gadget, fstab, ...)
 vendor/       msm-firmware-loader.sh (upstream, MIT)
