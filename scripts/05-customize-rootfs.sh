@@ -87,6 +87,9 @@ echo "==> enabling services"
 chroot "$ROOTFS" systemctl enable usb-gadget.service >/dev/null 2>&1 || true
 chroot "$ROOTFS" systemctl enable msm-firmware-loader.service >/dev/null 2>&1 || true
 chroot "$ROOTFS" systemctl enable dnsmasq.service >/dev/null 2>&1 || true
+# without first-run there is no Stock SSH install step, so make sure dropbear
+# is enabled explicitly or the device would only be reachable over USB gadgets.
+chroot "$ROOTFS" systemctl enable dropbear.service >/dev/null 2>&1 || true
 
 # --- WCNSS WiFi firmware ---
 echo "==> installing WCNSS firmware"
@@ -127,6 +130,27 @@ done
 exit 0
 IWEOF
 chmod 0755 "$ROOTFS/usr/local/bin/iwlist"
+
+# --- pre-complete DietPi first-run (skip interactive first boot) ---
+# Community-standard image-build practice (see DietPi .build/images/dietpi-build):
+#   .install_stage=10 marks the first-run setup as already done, so the device
+#   boots straight into the finished system - no whiptail, no network waiter,
+#   no survey. Locale/timezone/password are applied here at build time instead.
+echo "==> pre-completing DietPi first-run (skipping interactive first boot)"
+mkdir -p "$ROOTFS/boot/dietpi"
+echo 10 > "$ROOTFS/boot/dietpi/.install_stage"
+echo 'SURVEY_OPTED_IN=-1' >> "$ROOTFS/boot/dietpi.txt"
+
+LOCALE=$(sed -n 's/^AUTO_SETUP_LOCALE=//p' "$REPO_DIR/overlay/boot/dietpi.txt" | tail -n1)
+TIMEZONE=$(sed -n 's/^AUTO_SETUP_TIMEZONE=//p' "$REPO_DIR/overlay/boot/dietpi.txt" | tail -n1)
+: "${LOCALE:=en_US.UTF-8}"
+: "${TIMEZONE:=UTC}"
+echo "==> pinning locale ${LOCALE} / timezone ${TIMEZONE} (bypasses first-run)"
+echo "${LOCALE} UTF-8" >> "$ROOTFS/etc/locale.gen"
+chroot "$ROOTFS" locale-gen >/dev/null 2>&1 || true
+chroot "$ROOTFS" update-locale LANG="${LOCALE}" >/dev/null 2>&1 || true
+ln -sf "/usr/share/zoneinfo/${TIMEZONE}" "$ROOTFS/etc/localtime"
+echo "${TIMEZONE}" > "$ROOTFS/etc/timezone"
 
 # --- tidy up ---
 rm -f "$ROOTFS/usr/bin/qemu-aarch64-static" "$ROOTFS/root/dietpi-convert.sh"
