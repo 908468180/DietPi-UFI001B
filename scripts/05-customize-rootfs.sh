@@ -95,12 +95,38 @@ cp "$REPO_DIR/vendor/lib/firmware/wcnss"*.b* "$ROOTFS/lib/firmware/" 2>/dev/null
 mkdir -p "$ROOTFS/lib/firmware/wlan/prima"
 cp "$REPO_DIR/vendor/lib/firmware/wlan/prima/WCNSS_qcom_wlan_nv.bin" "$ROOTFS/lib/firmware/wlan/prima/" 2>/dev/null || true
 
-# --- patch DietPi WiFi scan to decode hex-encoded SSIDs (upstream issue #3495) ---
-echo "==> patching DietPi WiFi scan for hex-encoded SSIDs"
-WIFIDB="$ROOTFS/boot/dietpi/func/dietpi-wifidb"
-if [ -f "$WIFIDB" ]; then
-    perl -i -pe 's{(iw dev "\$wifi_iface" scan)}{$1 | perl -pe "s/\\x([0-9a-fA-F]{2})/chr(hex(\$1))/ge"}' "$WIFIDB"
-fi
+# --- decode hex-encoded SSIDs in DietPi WiFi tooling (upstream #3495) ---
+# The working decoder is a single-quoted perl with a doubled backslash:
+#   perl -pe 's/\\x([0-9a-fA-F]{2})/chr(hex($1))/ge'
+# Written via python3 heredocs to sidestep shell/perl quote escaping.
+echo "==> patching DietPi SSID decoding (wifidb scan)"
+python3 - "$ROOTFS/boot/dietpi/func/dietpi-wifidb" << 'PYEOF'
+import sys
+p = sys.argv[1]
+try:
+    s = open(p, encoding="utf-8", errors="replace").read()
+except OSError:
+    sys.exit(0)
+O = "done < <(iw dev \"$wifi_iface\" scan | grep -Po '^[[:blank:]]*SSID: \\K.+' | sort -fu)"
+N = ("done < <(iw dev \"$wifi_iface\" scan | perl -pe 's/\\\\x([0-9a-fA-F]{2})/chr(hex($1))/ge'"
+     " | grep -Po '^[[:blank:]]*SSID: \\K.+' | sort -fu)")
+if O in s:
+    open(p, "w", encoding="utf-8").write(s.replace(O, N))
+PYEOF
+echo "==> patching DietPi SSID decoding (network status)"
+python3 - "$ROOTFS/boot/dietpi/dietpi-network" << 'PYEOF'
+import sys
+p = sys.argv[1]
+try:
+    s = open(p, encoding="utf-8", errors="replace").read()
+except OSError:
+    sys.exit(0)
+O = "CURRENT_IFACE_WIFI_SSID=$(iw dev \"$iface\" link 2> /dev/null | mawk '$1==\"SSID:\"{print $2;exit}')"
+N = ("CURRENT_IFACE_WIFI_SSID=$(iw dev \"$iface\" link 2> /dev/null "
+     "| perl -ne 'if(/SSID:/){s/^[[:blank:]]*SSID:[[:blank:]]*//; s/\\\\x([0-9a-fA-F]{2})/chr(hex($1))/ge; print; exit}')")
+if O in s:
+    open(p, "w", encoding="utf-8").write(s.replace(O, N))
+PYEOF
 
 # --- tidy up ---
 rm -f "$ROOTFS/usr/bin/qemu-aarch64-static" "$ROOTFS/root/dietpi-convert.sh"
