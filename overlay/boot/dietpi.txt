@@ -2,8 +2,10 @@
 # Full key reference: https://dietpi.com/docs/dietpi_tools/#software-optimisation
 # WARNING: change AUTO_SETUP_GLOBAL_PASSWORD before giving the device away.
 
-# Run the first-time setup fully automated, no prompts.
-AUTO_SETUP_AUTOMATED=1
+# First-boot setup runs interactively (0) so the WiFi network can be
+# configured on first boot. The device has no display/keyboard, so drive the
+# first-run through the RNDIS/SSH or a serial console when available.
+AUTO_SETUP_AUTOMATED=0
 
 # Initial root/dietpi password (also applied to the root account at build time).
 AUTO_SETUP_GLOBAL_PASSWORD=dietpi
