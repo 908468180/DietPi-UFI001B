@@ -42,7 +42,7 @@ mkdir -p "$BUILD/src/lk2nd/lk2nd/util"
 cp "$SCRIPT_DIR/../tools/lk2nd-rproc/lk2nd-rproc.c" \
     "$BUILD/src/lk2nd/lk2nd/util/lk2nd-rproc.c"
 if ! grep -q 'lk2nd-rproc.o' "$BUILD/src/lk2nd/lk2nd/util/rules.mk"; then
-    echo 'OBJS += $(LOCAL_DIR)/lk2nd-rproc.o' >> "$BUILD/src/lk2nd/lk2nd/util/rules.mk"
+    printf '\nOBJS += $(LOCAL_DIR)/lk2nd-rproc.o\n' >> "$BUILD/src/lk2nd/lk2nd/util/rules.mk"
 fi
 # RELEASE_MEMORY=1 -> RPROC_MODE_NO_MODEM (free the modem carve-out at runtime).
 if [ "$RELEASE_MEMORY" = "1" ]; then
