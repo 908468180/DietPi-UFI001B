@@ -65,10 +65,20 @@ chroot "$ROOTFS" /usr/sbin/dropbearkey -t rsa \
     -f /etc/dropbear/dropbear_rsa_host_key 2>/dev/null || true
 echo "root:$DIETPI_PASSWORD" | chroot "$ROOTFS" chpasswd
 
-# --- mainline kernel (vmlinuz + dtbs + modules), dtb already patched ---
+# --- mainline kernel (vmlinuz + dtbs + modules) ---
 echo "==> installing mainline kernel"
 tar xkzf "$BUILD/work/$KERNEL_APK" -C "$ROOTFS" \
     --exclude=.PKGINFO --exclude='.SIGN*'
+
+# The APK carries the stock (unpatched) DTBs, so re-apply the DTB patch here:
+# the tar extraction above clobbered the patched copy made in 03-fetch-firmware.sh.
+echo "==> re-applying DTB patch (overclock / memory release)"
+DTB="$ROOTFS/boot/dtbs/qcom/$KERNEL_DTB"
+python3 "$SCRIPT_DIR/../tools/patch_dtb.py" \
+    --input "$DTB" \
+    --output "$DTB" \
+    --opp-mhz "$CPU_OPP_MHZ" \
+    $([ "$RELEASE_MEMORY" = "1" ] && echo --release-memory || true)
 
 # --- DietPi / device overlay ---
 echo "==> applying overlay"

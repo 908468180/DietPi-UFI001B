@@ -12,9 +12,9 @@ msm8916-thwc-ufi001c.dtb as shipped by postmarketOS):
                      N<=0 leaves the stock table untouched (<=998.4 MHz).
                      OPPs carry only opp-hz (no opp-microvolt), exactly
                      like the community recipe.
-  2. --release-memory : delete /reserved-memory/mpss and /memshare/mpss@0
-                     so the ~85 MiB modem carve-out becomes general RAM.
-                     Only meaningful if the modem partition is not used.
+2. --release-memory : delete /reserved-memory/mpss, wcnss, venus and mba
+                      so the ~97 MiB modem carve-out becomes general RAM.
+                      Only meaningful if the modem partition is not used.
 
 Run once:  python3 patch_dtb.py --input stock.dtb --output patched.dtb \
               --opp-mhz 1200 --release-memory
@@ -54,12 +54,33 @@ FIXTURE_DTS = """/dts-v1/;
 			reg = <0x0 0x86800000 0x0 0x5500000>;
 			no-map;
 		};
+
+		wcnss {
+			size = <0x0 0x600000>;
+			no-map;
+		};
+
+		venus {
+			size = <0x0 0x500000>;
+			no-map;
+		};
+
+		mba {
+			size = <0x0 0x100000>;
+			no-map;
+		};
 	};
 
 	soc {
 		#address-cells = <0x2>;
 		#size-cells = <0x1>;
 		ranges;
+
+		remoteproc@4080000 {
+			mpss {
+				memory-region = <&mpss_mem>;
+			};
+		};
 
 		cpu0_opp_table: opp-table-cpu {
 			compatible = "operating-points-v2";
@@ -173,10 +194,15 @@ def transform(dts, opts):
     if opts.get("release_memory"):
         lines, removed = remove_blocks(lines, [
             re.compile(r"^\s*([\w.-]+:\s*)?mpss@86800000\s*\{"),
+            re.compile(r"^\s*([\w.-]+:\s*)?wcnss(@[0-9a-fA-Fx,.-]+)?\s*\{"),
+            re.compile(r"^\s*([\w.-]+:\s*)?venus(@[0-9a-fA-Fx,.-]+)?\s*\{"),
+            re.compile(r"^\s*([\w.-]+:\s*)?mba(@[0-9a-fA-Fx,.-]+)?\s*\{"),
             re.compile(r"^\s*([\w.-]+:\s*)?mpss@0\s*\{"),
         ])
-        # Drop dangling phandle references to the removed node.
-        dead = re.compile(r"memory-region\s*=\s*<&mpss_mem>")
+        # Drop dangling phandle references to the removed nodes.
+        dead = re.compile(
+            r"memory-region\s*=\s*<&(mpss|wcnss|venus|mba|modem|gps)"
+            r"(_mem)?([,\>])")
         lines = [l for l in lines if not dead.search(l)]
         opts["_removed"] = removed
 
@@ -233,6 +259,7 @@ def main():
         ok = True
         o = transform(FIXTURE_DTS, {"opp_mhz": 1200, "release_memory": True})
         for pat in [re.compile(r"^\s*([\w.-]+:\s*)?mpss@"),
+                    re.compile(r"^\s*(wcnss|venus|mba)(@[0-9a-fA-Fx,.-]+)?\s*\{"),
                     re.compile(r"\bopp-998400000\b"),
                     re.compile(r"mpss_mem")]:
             if pat.search(o):
@@ -256,6 +283,9 @@ def main():
             ok = False
         if "mpss_mem: mpss@86800000" not in o2:
             print("FAIL: reserved-memory accidentally removed")
+            ok = False
+        if "wcnss {" not in o2 or "venus {" not in o2 or "mba {" not in o2:
+            print("FAIL: wcnss/venus/mba accidentally removed")
             ok = False
         print("self-test: %s" % ("OK" if ok else "FAILED"))
         sys.exit(0 if ok else 1)
