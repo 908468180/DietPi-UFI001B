@@ -5,7 +5,7 @@
 # Modes (config/board.conf USB_GADGET):
 #   0 = off
 #   1 = ECM only
-#   2 = RNDIS only with MS OS descriptors (default; OpenStick mode)
+#   2 = RNDIS + ECM  (default; Windows prefers RNDIS)
 
 set -e
 
@@ -37,18 +37,10 @@ if [ ! -d "$CONF" ]; then
         mkdir -p "$CONF/functions/ecm.usb0"
         ln -s "$CONF/functions/ecm.usb0" "$CONF/configs/c.1/ecm0"
     else
-        # RNDIS only + MS OS descriptors (OpenStick mode: Windows plug-and-play,
-        # no manual driver install)
         mkdir -p "$CONF/functions/rndis.usb0"
-        ln -s "$CONF/functions/rndis.usb0" "$CONF/configs/c.1/rndis0"
-        mkdir -p "$CONF/os_desc"
-        echo 1 > "$CONF/os_desc/use"
-        echo 0xBC > "$CONF/os_desc/b_vendor_code"
-        echo MSFT100 > "$CONF/os_desc/qw_sign"
-        ln -s "$CONF/os_desc" "$CONF/configs/c.1/os_desc"
-        mkdir -p "$CONF/functions/rndis.usb0/os_desc"
-        echo RNDIS > "$CONF/functions/rndis.usb0/os_desc/compatible_id"
-        echo 5162001 > "$CONF/functions/rndis.usb0/os_desc/sub_compatible_id"
+        mkdir -p "$CONF/functions/ecm.usb0"
+        ln -s "$CONF/functions/rndis.usb0" "$CONF/configs/c.1/rndis"
+        ln -s "$CONF/functions/ecm.usb0" "$CONF/configs/c.1/ecm0"
     fi
     echo "$UDC" > "$CONF/UDC"
 fi

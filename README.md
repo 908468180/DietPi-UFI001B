@@ -17,8 +17,8 @@ lk1st (custom primary bootloader)  ->  extlinux.conf  ->  6.6 mainline kernel (p
   kernel compilation needed
 - **extlinux boot** via **lk1st** + **qhypstub** (both built from source,
   test-signed) - swap kernels without repacking boot images
-- **USB network**: single RNDIS gadget with MS OS descriptors (OpenStick
-  mode: plug-and-play on Windows), static `192.168.68.1/24`
+- **USB network**: RNDIS + ECM gadget (Windows prefers RNDIS), static
+  `192.168.68.1/24`
 - **WiFi (WCN3620) / Bluetooth / 4G modem** firmware loaded at first boot from
   your own `modem` partition by `msm-firmware-loader` (no blobs vendored here)
 - **Default 1.2 GHz CPU OPP** (`400/800/1000/1100/1200 MHz`, exactly the
@@ -72,7 +72,7 @@ it!).
 |---|---|---|---|
 | `config/board.conf` | `CPU_OPP_MHZ` | `1200` | CPU OPP target; `0` = stock (998.4 MHz) |
 | | `RELEASE_MEMORY` | `1` | free the modem carve-out (~85 MiB to RAM): static DTB patch **and** runtime disable by the ported lk2nd-rproc module in lk1st |
-| | `USB_GADGET` | `2` | `0` off, `1` ECM, `2` RNDIS (OpenStick mode) |
+| | `USB_GADGET` | `2` | `0` off, `1` ECM, `2` RNDIS+ECM |
 | | `USB_GADGET_IP` | `192.168.68.1/24` | gadget static address |
 | | `DISK_TOTAL_SECTORS` | `7569375` | eMMC geometry |
 | | `LK1ST_COMPATIBLE` | `thwc,ufi001c` | lk1st device match |
