@@ -71,7 +71,7 @@ it!).
 | file | knob | default | meaning |
 |---|---|---|---|
 | `config/board.conf` | `CPU_OPP_MHZ` | `1200` | CPU OPP target; `0` = stock (998.4 MHz) |
-| | `RELEASE_MEMORY` | `1` | free the modem carve-out (~85 MiB to RAM): static DTB patch **and** runtime disable by the ported lk2nd-rproc module in lk1st |
+| | `RELEASE_MEMORY` | `1` | free the modem carve-out (~85 MiB to RAM): static DTB patch **and** runtime disable by the ported lk2nd-rproc module in lk1st. `LK2ND_RPROC_MODE=no_modem` (modem only) or `none` (also disable adsp+venus, audio via LPASS; matches the community "release memory" build) |
 | | `USB_GADGET` | `2` | `0` off, `1` ECM, `2` RNDIS+ECM |
 | | `USB_GADGET_IP` | `192.168.68.1/24` | gadget static address |
 | | `DISK_TOTAL_SECTORS` | `7569375` | eMMC geometry |

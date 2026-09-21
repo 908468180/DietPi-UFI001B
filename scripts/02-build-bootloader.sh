@@ -44,10 +44,15 @@ cp "$SCRIPT_DIR/../tools/lk2nd-rproc/lk2nd-rproc.c" \
 if ! grep -q 'lk2nd-rproc.o' "$BUILD/src/lk2nd/lk2nd/util/rules.mk"; then
     printf '\nOBJS += $(LOCAL_DIR)/lk2nd-rproc.o\n' >> "$BUILD/src/lk2nd/lk2nd/util/rules.mk"
 fi
-# RELEASE_MEMORY=1 -> RPROC_MODE_NO_MODEM (free the modem carve-out at runtime).
+# RELEASE_MEMORY=1 -> LK2ND_RPROC_MODE from board.conf (no_modem|none).
 if [ "$RELEASE_MEMORY" = "1" ]; then
+    RPROC_MODE=$(printf '%s' "${LK2ND_RPROC_MODE:-no_modem}" | tr '[:lower:]' '[:upper:]')
+    case "$RPROC_MODE" in
+        NONE|NO_MODEM) ;;
+        *) RPROC_MODE=NO_MODEM ;;
+    esac
     if ! grep -q 'LK2ND_RPROC_MODE' "$BUILD/src/lk2nd/project/lk1st-msm8916.mk"; then
-        echo 'DEFINES += LK2ND_RPROC_MODE=RPROC_MODE_NO_MODEM' \
+        echo "DEFINES += LK2ND_RPROC_MODE=RPROC_MODE_$RPROC_MODE" \
             >> "$BUILD/src/lk2nd/project/lk1st-msm8916.mk"
     fi
 fi
