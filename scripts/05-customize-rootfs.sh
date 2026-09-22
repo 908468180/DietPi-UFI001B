@@ -39,6 +39,7 @@ echo "==> apt update"
 chroot "$ROOTFS" apt-get update
 echo "==> installing board packages"
 chroot "$ROOTFS" apt-get install -y --no-install-recommends \
+    dbus \
     dnsmasq \
     ifupdown \
     iproute2 \
@@ -119,6 +120,30 @@ echo "==> enabling services"
 chroot "$ROOTFS" systemctl enable usb-gadget.service >/dev/null 2>&1 || true
 chroot "$ROOTFS" systemctl enable msm-firmware-loader.service >/dev/null 2>&1 || true
 chroot "$ROOTFS" systemctl enable dnsmasq.service >/dev/null 2>&1 || true
+# dbus must stay (systemctl/DietPi rely on the system bus); guarded
+# against the server-profile autoremove by having been marked manual.
+# Debian's dbus debs ship dbus.socket but NOT dbus.service, so systemd
+# socket activation would fail without a matching unit - write a stock one.
+if [ ! -e "$ROOTFS/lib/systemd/system/dbus.service" ]; then
+    cat > "$ROOTFS/lib/systemd/system/dbus.service" <<'EOF'
+[Unit]
+Description=D-Bus System Message Bus
+Documentation=man:dbus-daemon(1)
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only
+NotifyAccess=main
+WatchdogSec=900
+Restart=on-failure
+RestartPreventExitStatus=42
+
+[Install]
+WantedBy=multi-user.target
+Also=dbus.socket
+EOF
+fi
+chroot "$ROOTFS" systemctl enable dbus.socket dbus.service >/dev/null 2>&1 || true
 
 # --- WCNSS WiFi firmware ---
 echo "==> installing WCNSS firmware"
