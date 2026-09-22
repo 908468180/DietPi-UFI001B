@@ -12,9 +12,11 @@ msm8916-thwc-ufi001c.dtb as shipped by postmarketOS):
                      N<=0 leaves the stock table untouched (<=998.4 MHz).
                      OPPs carry only opp-hz (no opp-microvolt), exactly
                      like the community recipe.
-2. --release-memory : delete /reserved-memory/mpss, wcnss, venus and mba
-                      so the ~97 MiB modem carve-out becomes general RAM.
-                      Only meaningful if the modem partition is not used.
+2. --release-memory : delete /reserved-memory/mpss, venus and mba
+                       (the ~97 MiB modem carve-out plus dead venus/mba
+                       reservations) while KEEPING wcnss, because the
+                       WCNSS-pronto remote processor still needs its
+                       memory-region and phandle to bring up Wi-Fi.
 
 Run once:  python3 patch_dtb.py --input stock.dtb --output patched.dtb \
               --opp-mhz 1200 --release-memory
@@ -69,6 +71,11 @@ FIXTURE_DTS = """/dts-v1/;
 			size = <0x0 0x100000>;
 			no-map;
 		};
+
+		wcnss_mem: wcnss {
+			size = <0x0 0x600000>;
+			no-map;
+		};
 	};
 
 	soc {
@@ -80,6 +87,10 @@ FIXTURE_DTS = """/dts-v1/;
 			mpss {
 				memory-region = <&mpss_mem>;
 			};
+		};
+
+		pronto: remoteproc@a204000 {
+			memory-region = <&wcnss_mem>;
 		};
 
 		cpu0_opp_table: opp-table-cpu {
@@ -194,14 +205,14 @@ def transform(dts, opts):
     if opts.get("release_memory"):
         lines, removed = remove_blocks(lines, [
             re.compile(r"^\s*([\w.-]+:\s*)?mpss@86800000\s*\{"),
-            re.compile(r"^\s*([\w.-]+:\s*)?wcnss(@[0-9a-fA-Fx,.-]+)?\s*\{"),
             re.compile(r"^\s*([\w.-]+:\s*)?venus(@[0-9a-fA-Fx,.-]+)?\s*\{"),
             re.compile(r"^\s*([\w.-]+:\s*)?mba(@[0-9a-fA-Fx,.-]+)?\s*\{"),
             re.compile(r"^\s*([\w.-]+:\s*)?mpss@0\s*\{"),
         ])
-        # Drop dangling phandle references to the removed nodes.
+        # Drop dangling phandle references to the removed nodes, but never
+        # touch wcnss (its memory-region keeps Wi-Fi alive).
         dead = re.compile(
-            r"memory-region\s*=\s*<&(mpss|wcnss|venus|mba|modem|gps)"
+            r"memory-region\s*=\s*<&(mpss|venus|mba|modem|gps)"
             r"(_mem)?([,\>])")
         lines = [l for l in lines if not dead.search(l)]
         opts["_removed"] = removed
@@ -259,12 +270,19 @@ def main():
         ok = True
         o = transform(FIXTURE_DTS, {"opp_mhz": 1200, "release_memory": True})
         for pat in [re.compile(r"^\s*([\w.-]+:\s*)?mpss@"),
-                    re.compile(r"^\s*(wcnss|venus|mba)(@[0-9a-fA-Fx,.-]+)?\s*\{"),
+                    re.compile(r"^\s*(venus|mba)(@[0-9a-fA-Fx,.-]+)?\s*\{"),
                     re.compile(r"\bopp-998400000\b"),
                     re.compile(r"mpss_mem")]:
             if pat.search(o):
                 print("FAIL: %s still present" % pat.pattern)
                 ok = False
+        # wcnss must survive the release so Wi-Fi/pronto keeps working.
+        if "wcnss_mem: wcnss {" not in o:
+            print("FAIL: wcnss accidentally removed")
+            ok = False
+        if "memory-region = <&wcnss_mem>;" not in o:
+            print("FAIL: pronto wcnss memory-region lost")
+            ok = False
         for f in (400, 800, 1000, 1100, 1200):
             if "opp-%d {" % (f * 1000000) not in o:
                 print("FAIL: missing opp-%d" % (f * 1000000))
