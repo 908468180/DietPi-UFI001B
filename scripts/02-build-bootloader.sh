@@ -48,7 +48,7 @@ fi
 if [ "$RELEASE_MEMORY" = "1" ]; then
     RPROC_MODE=$(printf '%s' "${LK2ND_RPROC_MODE:-no_modem}" | tr '[:lower:]' '[:upper:]')
     case "$RPROC_MODE" in
-        NONE|NO_MODEM) ;;
+        NONE|NO_MODEM|WIFI) ;;
         *) RPROC_MODE=NO_MODEM ;;
     esac
     if ! grep -q 'LK2ND_RPROC_MODE' "$BUILD/src/lk2nd/project/lk1st-msm8916.mk"; then

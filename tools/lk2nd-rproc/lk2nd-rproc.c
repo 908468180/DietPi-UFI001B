@@ -29,6 +29,7 @@
  *   RPROC_MODE_ALL      - keep everything (no-op)
  *   RPROC_MODE_NO_MODEM - only disable the modem (mpss)
  *   RPROC_MODE_NONE     - disable all remoteprocs AND venus, re-route audio
+ *   RPROC_MODE_WIFI     - disable modem + venus but KEEP WCNSS (Wi-Fi/BT)
  *
  * Override at build time with "DEFINES += LK2ND_RPROC_MODE=RPROC_MODE_NO_MODEM".
  */
@@ -37,6 +38,7 @@ enum rproc_mode {
 	RPROC_MODE_ALL,
 	RPROC_MODE_NO_MODEM,
 	RPROC_MODE_NONE,
+	RPROC_MODE_WIFI,
 };
 
 #ifndef LK2ND_RPROC_MODE
@@ -276,6 +278,17 @@ static void lk2nd_disable_rprocs(void *fdt, enum rproc_mode mode)
 		/* Match all remoteprocs and venus */
 		if (strncmp(name, "remoteproc@", strlen("remoteproc@")) == 0 ||
 		    strncmp(name, "video-codec@", strlen("video-codec@")) == 0) {
+			if (mode == RPROC_MODE_WIFI) {
+				/* Keep the WCNSS remoteproc (Wi-Fi/BT) alive;
+				 * disable modem + venus to free their carve-outs. */
+				const char *comp = fdt_getprop(fdt, node, "compatible", &len);
+				if (comp && strstr(comp, "pronto")) {
+					dprintf(INFO, "lk2nd-rproc: keeping %s\n", name);
+					continue;
+				}
+				lk2nd_disable_rproc(fdt, name, node, rmem, RPROC_MODE_NONE);
+				continue;
+			}
 			lk2nd_disable_rproc(fdt, name, node, rmem, mode);
 			continue;
 		}
