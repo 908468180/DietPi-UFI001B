@@ -45,15 +45,18 @@ chroot "$ROOTFS" apt-get install -y --no-install-recommends \
     iw \
     kmod \
     locales \
-    modemmanager \
     procps \
-    qrtr-tools \
-    rmtfs \
     systemd-timesyncd \
     udev \
     usbutils \
     wget \
+    wireless-regdb \
     wpasupplicant
+if [ "$SERVER_PROFILE" != "1" ]; then
+    # 4G-ready profile: keep the modem userspace stack.
+    chroot "$ROOTFS" apt-get install -y --no-install-recommends \
+        modemmanager qrtr-tools rmtfs
+fi
 chroot "$ROOTFS" apt-get clean
 rm -rf "$ROOTFS/var/lib/apt/lists"/*
 
@@ -93,6 +96,23 @@ chmod 0755 "$ROOTFS/usr/sbin/msm-firmware-loader.sh" \
           "$ROOTFS/usr/local/sbin/usb-gadget.sh" \
           "$ROOTFS/boot/Automation_Custom_PreScript.sh" \
           "$ROOTFS/boot/Automation_Custom_Script.sh"
+
+# --- board services for a headless server (SERVER_PROFILE=1) ---
+if [ "$SERVER_PROFILE" = "1" ]; then
+    echo "==> server profile: strip modem/desktop-only userspace"
+    # Never leave the modem stack around (ModemManager+polkitd RSS ~18MiB).
+    chroot "$ROOTFS" apt-get purge -y \
+        modemmanager libmm-glib0 libqmi-glib5 polkitd \
+        qrtr-tools rmtfs || true
+    # Remove legacy wireless firmware blobs (nothing on MSM8916 uses them);
+    # container firmware tarballs ~215MiB of a 4GiB eMMC.
+    chroot "$ROOTFS" apt-get purge -y \
+        firmware-iwlwifi firmware-atheros firmware-brcm80211 \
+        firmware-realtek firmware-misc-nonfree || true
+    chroot "$ROOTFS" apt-get autoremove -y --purge || true
+    # No virtual console on a headless board (serial ttyMSM0 stays for rescue).
+    chroot "$ROOTFS" systemctl mask getty@tty1.service || true
+fi
 
 # --- enable board services ---
 echo "==> enabling services"
