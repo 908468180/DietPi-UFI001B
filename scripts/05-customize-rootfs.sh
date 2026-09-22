@@ -42,6 +42,7 @@ chroot "$ROOTFS" apt-get install -y --no-install-recommends \
     dnsmasq \
     ifupdown \
     iproute2 \
+    iw \
     kmod \
     locales \
     modemmanager \
@@ -51,7 +52,8 @@ chroot "$ROOTFS" apt-get install -y --no-install-recommends \
     systemd-timesyncd \
     udev \
     usbutils \
-    wget
+    wget \
+    wpasupplicant
 chroot "$ROOTFS" apt-get clean
 rm -rf "$ROOTFS/var/lib/apt/lists"/*
 
