@@ -80,7 +80,8 @@ python3 "$SCRIPT_DIR/../tools/patch_dtb.py" \
     --input "$DTB" \
     --output "$DTB" \
     --opp-mhz "$CPU_OPP_MHZ" \
-    $([ "$RELEASE_MEMORY" = "1" ] && echo --release-memory || true)
+    $([ "$RELEASE_MEMORY" = "1" ] && echo --release-memory || true) \
+    $([ "$AGGRESSIVE_MEMORY" = "1" ] && echo --aggressive || true)
 
 # --- DietPi / device overlay ---
 echo "==> applying overlay"

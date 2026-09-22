@@ -17,9 +17,13 @@ msm8916-thwc-ufi001c.dtb as shipped by postmarketOS):
                        reservations) while KEEPING wcnss, because the
                        WCNSS-pronto remote processor still needs its
                        memory-region and phandle to bring up Wi-Fi.
+ 3. --aggressive     : additionally delete /reserved-memory/gps, rmtfs,
+                       rfsa and reserved@86680000 (~3.5 MiB of unused
+                       modem/GPS-era reservations). tz-apps / tz / smem /
+                       hypervisor are always kept as firmware territory.
 
 Run once:  python3 patch_dtb.py --input stock.dtb --output patched.dtb \
-              --opp-mhz 1200 --release-memory
+              --opp-mhz 1200 --release-memory --aggressive
 
 dtc (device-tree-compiler) must be installed. Use --self-test to verify
 the pure-text transforms without dtc.
@@ -44,6 +48,9 @@ FIXTURE_DTS = """/dts-v1/;
 		memory-region = <&mpss_mem>;
 		mpss@0 {
 			qcom,smem-state-names = "fatal";
+			gps@0 {
+				memory-region = <&gps>;
+			};
 		};
 	};
 
@@ -69,6 +76,36 @@ FIXTURE_DTS = """/dts-v1/;
 
 		mba {
 			size = <0x0 0x100000>;
+			no-map;
+		};
+
+		tz-apps@86000000 {
+			reg = <0x0 0x86000000 0x0 0x300000>;
+			no-map;
+		};
+
+		gps {
+			size = <0x0 0x200000>;
+			alignment = <0x0 0x100000>;
+			alloc-ranges = <0x0 0x86800000 0x0 0x8000000>;
+			no-map;
+			status = "disabled";
+			phandle = <0x16>;
+		};
+
+		rmtfs@86700000 {
+			compatible = "qcom,rmtfs-mem";
+			reg = <0x0 0x86700000 0x0 0xe0000>;
+			no-map;
+		};
+
+		rfsa@867e0000 {
+			reg = <0x0 0x867e0000 0x0 0x20000>;
+			no-map;
+		};
+
+		reserved@86680000 {
+			reg = <0x0 0x86680000 0x0 0x80000>;
 			no-map;
 		};
 
@@ -209,13 +246,24 @@ def transform(dts, opts):
             re.compile(r"^\s*([\w.-]+:\s*)?mba(@[0-9a-fA-Fx,.-]+)?\s*\{"),
             re.compile(r"^\s*([\w.-]+:\s*)?mpss@0\s*\{"),
         ])
+        opts["_removed"] = removed
+
+    if opts.get("aggressive"):
+        lines, removed = remove_blocks(lines, [
+            re.compile(r"^\s*([\w.-]+:\s*)?gps(@[0-9a-fA-Fx,.-]+)?\s*\{"),
+            re.compile(r"^\s*([\w.-]+:\s*)?rmtfs@86700000\s*\{"),
+            re.compile(r"^\s*([\w.-]+:\s*)?rfsa@867e0000\s*\{"),
+            re.compile(r"^\s*([\w.-]+:\s*)?reserved@86680000\s*\{"),
+        ])
+        opts["_removed"] = opts.get("_removed", []) + removed
+
+    if opts.get("release_memory") or opts.get("aggressive"):
         # Drop dangling phandle references to the removed nodes, but never
         # touch wcnss (its memory-region keeps Wi-Fi alive).
         dead = re.compile(
             r"memory-region\s*=\s*<&(mpss|venus|mba|modem|gps)"
             r"(_mem)?([,\>])")
         lines = [l for l in lines if not dead.search(l)]
-        opts["_removed"] = removed
 
     opp_mhz = opts.get("opp_mhz")
     freqs = target_freqs(opp_mhz)
@@ -262,6 +310,9 @@ def main():
     ap.add_argument("--output", help="patched .dtb")
     ap.add_argument("--opp-mhz", type=int, default=0, help="target CPU MHz (0=stock)")
     ap.add_argument("--release-memory", action="store_true", dest="release_memory")
+    ap.add_argument("--aggressive", action="store_true", dest="aggressive",
+                    help="also drop gps/rmtfs/rfsa/reserved@86680000 "
+                         "(keep tz-apps and firmware regions)")
     ap.add_argument("--keep-dts", help="also save intermediate .dts here")
     ap.add_argument("--self-test", action="store_true", help="run transform unit checks only")
     args = ap.parse_args()
@@ -305,6 +356,24 @@ def main():
         if "wcnss {" not in o2 or "venus {" not in o2 or "mba {" not in o2:
             print("FAIL: wcnss/venus/mba accidentally removed")
             ok = False
+        # --aggressive removes the leftover modem/GPS-era reservations
+        # but must keep tz-apps and every firmware-critical region.
+        o3 = transform(FIXTURE_DTS, {"opp_mhz": 0, "aggressive": True})
+        for pat in [re.compile(r"^\s*([\w.-]+:\s*)?gps(@[0-9a-fA-Fx,.-]+)?\s*\{"),
+                    re.compile(r"rmtfs@86700000"),
+                    re.compile(r"rfsa@867e0000"),
+                    re.compile(r"reserved@86680000")]:
+            if pat.search(o3):
+                print("FAIL: aggressive still present: %s" % pat.pattern)
+                ok = False
+        for keep in ["tz-apps@86000000", "wcnss_mem: wcnss {",
+                     "memory-region = <&wcnss_mem>;"]:
+            if keep not in o3:
+                print("FAIL: aggressive removed %s" % keep)
+                ok = False
+        if "memory-region = <&gps>;" in o3:
+            print("FAIL: dangling gps ref kept")
+            ok = False
         print("self-test: %s" % ("OK" if ok else "FAILED"))
         sys.exit(0 if ok else 1)
 
@@ -322,7 +391,8 @@ def main():
 
     with open(dts_path, encoding="utf-8") as f:
         dts = f.read()
-    opts = {"opp_mhz": args.opp_mhz, "release_memory": args.release_memory}
+    opts = {"opp_mhz": args.opp_mhz, "release_memory": args.release_memory,
+            "aggressive": args.aggressive}
     dts = transform(dts, opts)
     with open(dts_path, "w", encoding="utf-8") as f:
         f.write(dts)
