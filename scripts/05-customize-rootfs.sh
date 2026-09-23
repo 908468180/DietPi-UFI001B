@@ -128,6 +128,57 @@ if [ -f "$WIFIDB" ]; then
     perl -i -pe 's{(iw dev "\$wifi_iface" scan)}{$1 | perl -pe "s/\\x([0-9a-fA-F]{2})/chr(hex(\$1))/ge"}' "$WIFIDB"
 fi
 
+# --- patch DietPi first-boot rootfs resize: multi-digit partition numbers ---
+# Stock matches only single-digit partitions ('p[1-9]$' plus fixed-width
+# ${ROOT_DEV: -1} / ${ROOT_DEV::-2} parsing), but the UFI001B GPT places
+# rootfs at mmcblk0p14 (13 Qualcomm partitions precede it). The official
+# script aborts with 'Unsupported root device naming scheme' on first boot -
+# right after disabling itself, so it never retries and the 1.5 GiB image
+# filesystem never grows into the full-eMMC partition. Guarded like 04's
+# BOOT_DEVICE check: fail the build loudly if upstream changes these lines.
+echo "==> patching DietPi fs_partition_resize for multi-digit partitions"
+RESIZE_SH="$ROOTFS/var/lib/dietpi/services/fs_partition_resize.sh"
+[ -f "$RESIZE_SH" ] || { echo "missing $RESIZE_SH"; exit 1; }
+python3 - "$RESIZE_SH" <<'PYEOF'
+import sys
+
+path = sys.argv[1]
+with open(path) as f:
+    lines = f.readlines()
+
+hits = dict.fromkeys(
+    ("sd_regex", "mmc_regex", "sd_part", "mmc_part", "sd_drive", "mmc_drive"), 0
+)
+for i, line in enumerate(lines):
+    if "=~" in line and "[a-z][1-9]$" in line:
+        lines[i] = line.replace("[a-z][1-9]$", "[a-z][1-9][0-9]*$")
+        hits["sd_regex"] += 1
+    elif "=~" in line and "p[1-9]$" in line:
+        lines[i] = line.replace("p[1-9]$", "p[1-9][0-9]*$")
+        hits["mmc_regex"] += 1
+    elif "ROOT_PART=${ROOT_DEV: -1}" in line and "/dev/sda1" in line:
+        lines[i] = line.replace("${ROOT_DEV: -1}", "${ROOT_DEV##*[a-z]}")
+        hits["sd_part"] += 1
+    elif "ROOT_PART=${ROOT_DEV: -1}" in line and "/dev/mmcblk0p1" in line:
+        lines[i] = line.replace("${ROOT_DEV: -1}", "${ROOT_DEV##*p}")
+        hits["mmc_part"] += 1
+    elif "ROOT_DRIVE=${ROOT_DEV::-1}" in line:
+        lines[i] = line.replace("${ROOT_DEV::-1}", "${ROOT_DEV%%[0-9]*}")
+        hits["sd_drive"] += 1
+    elif "ROOT_DRIVE=${ROOT_DEV::-2}" in line:
+        lines[i] = line.replace("${ROOT_DEV::-2}", "${ROOT_DEV%p*}")
+        hits["mmc_drive"] += 1
+
+bad = {k: v for k, v in hits.items() if v != 1}
+if bad:
+    sys.exit(f"fs_partition_resize patch mismatch, expected exactly 1 hit each: {hits}")
+
+with open(path, "w") as f:
+    f.writelines(lines)
+print(f"patched {path}: {hits}")
+PYEOF
+bash -n "$RESIZE_SH"
+
 # --- tidy up ---
 rm -f "$ROOTFS/usr/bin/qemu-aarch64-static" "$ROOTFS/root/dietpi-convert.sh"
 : > "$ROOTFS/root/.bash_history"

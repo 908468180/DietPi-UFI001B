@@ -92,6 +92,16 @@ surprise:
   scan` line to decode `\xNN` escapes, otherwise encrypted/hidden networks
   with non-ASCII SSIDs cannot be selected. DietPi master does not carry the
   fix yet, verify before removing the patch.
+- **`/var/lib/dietpi/services/fs_partition_resize.sh` is patched**
+  (multi-digit partition numbers): stock parses only `p1`..`p9` via
+  `'p[1-9]$'` + fixed-width `${ROOT_DEV: -1}`/`::-2`, but the UFI001B GPT
+  puts rootfs at `mmcblk0p14`, so the official first-boot expansion aborted
+  with `Unsupported root device naming scheme` right after disabling itself
+  - image filesystem never grew. `05-customize-rootfs.sh` widens both
+  naming regexes to `[1-9][0-9]*` and parses PART/DRIVE with
+  `##*p`/`%p*` (resp. `##*[a-z]`/`%%[0-9]*` for sd-style). Verify before
+  removing: DietPi master still carried the single-digit-only parser when
+  checked (2026-09-23).
 - **No system bus / `dbus`** on `SERVER_PROFILE=1` images - stock DietPi
   removes it and root only tooling (`sudo systemctl` via systemd's private
   socket) works fine; plain `systemctl` from a non-root shell will fail.
