@@ -35,23 +35,16 @@ mount_chroot
 trap umount_chroot EXIT
 
 # --- board packages (survive the installer's autoremove purge) ---
+# Only packages the official DietPi installer does NOT provide are listed
+# here; DietPi-Installer already installs iw, wpasupplicant, wireless-regdb,
+# ifupdown, kmod, locales, procps, systemd-timesyncd, udev, usbutils, wget
+# and dropbear. iproute2 is kept explicit because the usb-gadget script uses `ip`.
 echo "==> apt update"
 chroot "$ROOTFS" apt-get update
 echo "==> installing board packages"
 chroot "$ROOTFS" apt-get install -y --no-install-recommends \
     dnsmasq \
-    ifupdown \
-    iproute2 \
-    iw \
-    kmod \
-    locales \
-    procps \
-    systemd-timesyncd \
-    udev \
-    usbutils \
-    wget \
-    wireless-regdb \
-    wpasupplicant
+    iproute2
 if [ "$SERVER_PROFILE" != "1" ]; then
     # 4G-ready profile: keep the modem userspace stack.
     chroot "$ROOTFS" apt-get install -y --no-install-recommends \

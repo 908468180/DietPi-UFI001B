@@ -81,6 +81,28 @@ it!).
 | | `KERNEL_APK` | ...`6.6-r5.apk` | mainline kernel package |
 | `overlay/boot/dietpi.txt` | `AUTO_SETUP_*` | | DietPi first-run answers |
 
+## Known differences from upstream DietPi
+
+The image keeps DietPi as stock as possible, but intentionally diverges in a
+few places so this headless dongle works. Documented so upgrades are not a
+surprise:
+
+- **`/boot/dietpi/func/dietpi-wifidb` is patched** (hex-encoded SSID decoding,
+  upstream DietPi issue #3495): `05-customize-rootfs.sh` rewrites the `iw dev
+  scan` line to decode `\xNN` escapes, otherwise encrypted/hidden networks
+  with non-ASCII SSIDs cannot be selected. DietPi master does not carry the
+  fix yet, verify before removing the patch.
+- **No system bus / `dbus`** on `SERVER_PROFILE=1` images - stock DietPi
+  removes it and root only tooling (`sudo systemctl` via systemd's private
+  socket) works fine; plain `systemctl` from a non-root shell will fail.
+- **`SERVER_PROFILE=1` purges the wireless firmware blobs**
+  (`firmware-iwlwifi`/`-atheros`/`-brcm80211`/`-realtek`/`-misc-nonfree`,
+  ~215 MiB) and the modem userspace (`modemmanager`, `polkitd`, ...) that
+  DietPi-Installer installs by default - MSM8916 uses neither.
+- Custom systemd units (`usb-gadget.service`, `msm-firmware-loader.service`)
+  and the DTB/kernel surgery (OPP overclock, reserved-memory release) have no
+  upstream equivalent; revert knobs in `config/board.conf`.
+
 ## Other UFI boards
 
 Same build with a different DTB / compatible: set `KERNEL_DTB`
