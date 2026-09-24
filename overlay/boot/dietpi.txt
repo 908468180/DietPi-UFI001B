@@ -22,3 +22,10 @@ AUTO_SETUP_NET_WIFI_ENABLED=1
 
 # Optional: run this hook before the first-boot software installation.
 AUTO_SETUP_CUSTOM_SCRIPT_EXEC=/boot/Automation_Custom_PreScript.sh
+
+# zram swap instead of a 1.5 GiB disk swap file: 256 MiB (DietPi auto for
+# 512 MiB RAM would be 236; both are under the zram < RAM rule).
+# Size/disable later via dietpi-config -> Advanced Options -> Swap file
+# (dietpi-drive_manager / dietpi-set_swapfile).
+AUTO_SETUP_SWAPFILE_SIZE=256
+AUTO_SETUP_SWAPFILE_LOCATION=zram

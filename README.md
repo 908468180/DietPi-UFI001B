@@ -83,6 +83,9 @@ it!).
 | `config/build.conf` | `DISTRO_TARGET` | `7` | DietPi distro (7=bookworm) |
 | | `KERNEL_APK` | ...`6.6-r5.apk` | mainline kernel package |
 | `overlay/boot/dietpi.txt` | `AUTO_SETUP_*` | | DietPi first-run answers |
+| | `AUTO_SETUP_SWAPFILE_SIZE` | `256` | zram swap size in MiB (`0` disables swap; `1` = DietPi auto ≈ RAM/2 = 236) |
+| | `AUTO_SETUP_SWAPFILE_LOCATION` | `zram` | official `dietpi-set_swapfile` backend; resize/disable later via `dietpi-config` → Advanced Options → Swap file |
+| `overlay/etc/sysctl.d/99-zram-swappiness.conf` | `vm.swappiness` | `1` | DietPi writes `50` for zram in `98-dietpi-zram-swap.conf`; this drop-in keeps DietPi's disk-swap default of `1` (last-resort / anti-OOM) |
 
 ## Known differences from upstream DietPi
 
@@ -115,6 +118,16 @@ surprise:
 - Custom systemd units (`usb-gadget.service`, `msm-firmware-loader.service`)
   and the DTB/kernel surgery (OPP overclock, reserved-memory release) have no
   upstream equivalent; revert knobs in `config/board.conf`.
+- **zram swap + low swappiness** (stock DietPi would create a ~1.5 GiB
+  `/var/swap` file on first boot with `SIZE=1`/`LOCATION=/var/swap` defaults):
+  `overlay/boot/dietpi.txt` pins `AUTO_SETUP_SWAPFILE_SIZE=256` +
+  `AUTO_SETUP_SWAPFILE_LOCATION=zram`, so first boot runs the official
+  `dietpi-set_swapfile 256 zram`. Size/disable stays adjustable after flash
+  via `dietpi-config` → Advanced Options → Swap file. `dietpi-set_swapfile`
+  writes `vm.swappiness=50` for zram (`98-dietpi-zram-swap.conf`);
+  `overlay/etc/sysctl.d/99-zram-swappiness.conf` overrides it back to `1`
+  (DietPi's own disk-swap default, "prevent OOM only") without patching
+  DietPi scripts.
 - **USB internet sharing** installs the `iptables` package and
   `usb-gadget.sh` adds an idempotent
   `POSTROUTING -s <usb-subnet> ! -d <usb-subnet> -j MASQUERADE` so the host
