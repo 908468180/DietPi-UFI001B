@@ -18,7 +18,8 @@ lk1st (custom primary bootloader)  ->  extlinux.conf  ->  6.6 mainline kernel (p
 - **extlinux boot** via **lk1st** + **qhypstub** (both built from source,
   test-signed) - swap kernels without repacking boot images
 - **USB network**: RNDIS + ECM gadget (Windows prefers RNDIS), static
-  `192.168.68.1/24`
+  `192.168.68.1/24`, dnsmasq DHCP for the host PC, and **IPv4 NAT**
+  (iptables MASQUERADE) so the PC shares the stick's WiFi/4G uplink
 - **WiFi (WCN3620) / Bluetooth / 4G modem** firmware loaded at first boot from
   your own `modem` partition by `msm-firmware-loader` (no blobs vendored here)
 - **Default 1.2 GHz CPU OPP** (`400/800/1000/1100/1200 MHz`, exactly the
@@ -112,6 +113,11 @@ surprise:
 - Custom systemd units (`usb-gadget.service`, `msm-firmware-loader.service`)
   and the DTB/kernel surgery (OPP overclock, reserved-memory release) have no
   upstream equivalent; revert knobs in `config/board.conf`.
+- **USB internet sharing** installs the `iptables` package and
+  `usb-gadget.sh` adds an idempotent
+  `POSTROUTING -s <usb-subnet> ! -d <usb-subnet> -j MASQUERADE` so the host
+  PC reuses the stick's WiFi/4G uplink (same rule as OpenStick-Builder's
+  ifupdown hook). Stock DietPi has no NAT userspace on SERVER_PROFILE=1.
 
 ## Other UFI boards
 

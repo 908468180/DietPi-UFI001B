@@ -44,7 +44,8 @@ chroot "$ROOTFS" apt-get update
 echo "==> installing board packages"
 chroot "$ROOTFS" apt-get install -y --no-install-recommends \
     dnsmasq \
-    iproute2
+    iproute2 \
+    iptables
 if [ "$SERVER_PROFILE" != "1" ]; then
     # 4G-ready profile: keep the modem userspace stack.
     chroot "$ROOTFS" apt-get install -y --no-install-recommends \

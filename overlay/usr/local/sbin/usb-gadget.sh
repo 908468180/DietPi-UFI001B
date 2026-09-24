@@ -53,4 +53,15 @@ for d in usb0 usb1; do
 done
 
 sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || true
+
+# NAT: masquerade usb0/usb1 client traffic out any uplink (wlan0/wwan).
+# Same rule as OpenStick-Builder (LongQT-sea fork) ifupdown "up" hook:
+#   iptables -t nat -A POSTROUTING -s <subnet> ! -d <subnet> -j MASQUERADE
+# Idempotent so restarts do not stack duplicates.
+if command -v iptables >/dev/null 2>&1; then
+    # 192.168.68.1/24 -> 192.168.68.0/24  (fields: a.b.c.d/len)
+    NET=$(printf '%s' "$IP" | awk -F'[./]' '{ printf "%d.%d.%d.0/%d\n", $1, $2, $3, $5 }')
+    iptables -t nat -C POSTROUTING -s "$NET" ! -d "$NET" -j MASQUERADE 2>/dev/null \
+        || iptables -t nat -A POSTROUTING -s "$NET" ! -d "$NET" -j MASQUERADE
+fi
 exit 0
