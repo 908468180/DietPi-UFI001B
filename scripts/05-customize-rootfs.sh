@@ -123,10 +123,45 @@ mkdir -p "$ROOTFS/lib/firmware/wlan/prima"
 cp "$REPO_DIR/vendor/lib/firmware/wlan/prima/WCNSS_qcom_wlan_nv.bin" "$ROOTFS/lib/firmware/wlan/prima/" 2>/dev/null || true
 
 # --- patch DietPi WiFi scan to decode hex-encoded SSIDs (upstream issue #3495) ---
+# iw prints non-ASCII SSIDs as literal \xNN text; perl must see \\x (not \x,
+# which is a hex-escape matching binary) inside single quotes so bash does
+# not expand $1 either.
 echo "==> patching DietPi WiFi scan for hex-encoded SSIDs"
 WIFIDB="$ROOTFS/boot/dietpi/func/dietpi-wifidb"
 if [ -f "$WIFIDB" ]; then
-    perl -i -pe 's{(iw dev "\$wifi_iface" scan)}{$1 | perl -pe "s/\\x([0-9a-fA-F]{2})/chr(hex(\$1))/ge"}' "$WIFIDB"
+    python3 - "$WIFIDB" <<'PYEOF'
+import re
+import sys
+
+path = sys.argv[1]
+with open(path) as f:
+    text = f.read()
+
+# Correct form: single-quoted perl program, \\x for literal backslash-x
+correct = (
+    'iw dev "$wifi_iface" scan | perl -pe '
+    '\'s/\\\\x([0-9a-fA-F]{2})/chr(hex($1))/ge\''
+)
+# Broken variants from earlier patches / the bug itself
+pattern = re.compile(
+    r'iw dev "\$wifi_iface" scan \| perl -pe ["\']s/\\+x\(\[0-9a-fA-F\]\{2\}\)'
+    r'/chr\(hex\(\$1\)\)/ge["\']'
+)
+# Use a lambda: re.sub would otherwise treat \\ in the replacement as an escape
+text, n = pattern.subn(lambda _m: correct, text, count=1)
+if n == 0 and correct not in text:
+    text = text.replace(
+        'iw dev "$wifi_iface" scan |', correct + ' |', 1
+    )
+    n = 1 if correct in text else 0
+if n == 0 and correct in text:
+    n = 1
+with open(path, 'w') as f:
+    f.write(text)
+print('wifidb hex SSID decode: %s' % ('patched' if n else 'NOT FOUND'))
+if n == 0:
+    sys.exit(1)
+PYEOF
 fi
 
 # --- patch DietPi first-boot rootfs resize: multi-digit partition numbers ---
