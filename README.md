@@ -22,9 +22,11 @@ lk1st (custom primary bootloader)  ->  extlinux.conf  ->  6.6 mainline kernel (p
   (iptables MASQUERADE) so the PC shares the stick's WiFi/4G uplink
 - **WiFi (WCN3620) / Bluetooth / 4G modem** firmware loaded at first boot from
   your own `modem` partition by `msm-firmware-loader` (no blobs vendored here)
-- **Default 1.2 GHz CPU OPP** (`400/800/1000/1100/1200 MHz`, exactly the
-  community-proven table) and **~85 MiB extra RAM** by releasing the modem
-  reserved-memory region -- both knobs in `config/board.conf`
+- **Default ~1.2 GHz CPU OPP** snapped to real A53 PLL rates
+  (`400/800/998.4/1094.4/1152/1190.4/1209.6 MHz` — not round 1000/1100/1200
+  placeholders, which the PLL cannot lock to) and **~85 MiB extra RAM** by
+  releasing the modem reserved-memory region -- both knobs in
+  `config/board.conf`
 - Community-proven partition table (`tools/make_gpt.py`), rootfs fills the
   whole eMMC (7,569,375 sectors on this unit)
 
@@ -71,7 +73,7 @@ it!).
 
 | file | knob | default | meaning |
 |---|---|---|---|
-| `config/board.conf` | `CPU_OPP_MHZ` | `1200` | CPU OPP target; `0` = stock (998.4 MHz) |
+| `config/board.conf` | `CPU_OPP_MHZ` | `1200` | CPU OPP target; `0` = stock (998.4 MHz). Values are snapped to real A53 PLL rates (400/800/998.4/1094.4/1152/1190.4/1209.6) so the clock framework and OPP table stay in sync. |
 | | `RELEASE_MEMORY` | `1` | free the modem carve-out (~85 MiB to RAM): static DTB patch **and** runtime disable by the ported lk2nd-rproc module in lk1st. `LK2ND_RPROC_MODE=no_modem` (modem only) or `none` (also disable adsp+venus, audio via LPASS; matches the community "release memory" build) |
 | | `USB_GADGET` | `2` | `0` off, `1` ECM, `2` RNDIS+ECM |
 | | `USB_GADGET_IP` | `192.168.68.1/24` | gadget static address |

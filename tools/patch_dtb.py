@@ -5,10 +5,12 @@ Wraps dtc to decompile/recompile and performs two well-defined text edits
 on the generated DTS (structure mirrors the stock 6.6 DTB of
 msm8916-thwc-ufi001c.dtb as shipped by postmarketOS):
 
-  1. --opp-mhz N   : replace the CPU OPP table children with a set of
-                     frequencies stepping by 100 MHz up to N MHz
-                     (default build uses 1200 => 400/800/1000/1100/1200,
-                     the same OPPs proven by the community overclock).
+  1. --opp-mhz N   : replace the CPU OPP table children with hardware-
+                     exact rates up to N MHz (default build uses 1200 =>
+                     400/800 plus A53 PLL steps 998.4/1094.4/1152/1190.4
+                     /1209.6). Round MHz placeholders (1000/1100/1200)
+                     are NOT used: the PLL cannot lock to them and
+                     dev_pm_opp_set_rate() then fails with -ENODATA.
                      N<=0 leaves the stock table untouched (<=998.4 MHz).
                      OPPs carry only opp-hz (no opp-microvolt), exactly
                      like the community recipe.
@@ -36,6 +38,20 @@ import subprocess
 import sys
 
 OPP_START_INDENT = "\t" * 2          # children of /soc/opp-table-cpu
+
+# A53/APCS PLL can only lock to these rates (19.2 MHz XO steps), from the
+# mainline msm8916 apcs_pll_freq table. OPP entries must be exact members:
+# cpufreq/clk rounds a request (e.g. 1200 MHz -> 1209.6 MHz) and then
+# dev_pm_opp_set_rate() looks up the *actual* rate (-ENODATA otherwise).
+A53_PLL_FREQS_HZ = (
+    998400000,
+    1094400000,
+    1152000000,
+    1190400000,
+    1209600000,
+    1248000000,
+    1401600000,
+)
 
 # Stock msm8916 6.6 DTS excerpt mirroring the real structure (self-test only).
 FIXTURE_DTS = """/dts-v1/;
@@ -212,10 +228,9 @@ def opp_names(current_text):
                       re.finditer(r"opp-(\d+)000000", current_text)))
 
 
-def build_opp_children(freqs_mhz, indent=OPP_START_INDENT):
+def build_opp_children(freqs_hz, indent=OPP_START_INDENT):
     lines = []
-    for mhz in sorted(freqs_mhz):
-        hz = mhz * 1000000
+    for hz in sorted(freqs_hz):
         lines.append("%sopp-%d {" % (indent, hz))
         lines.append("%s\t opp-hz = /bits/ 64 <%d>;" % (indent, hz))
         lines.append("%s};" % indent)
@@ -223,16 +238,26 @@ def build_opp_children(freqs_mhz, indent=OPP_START_INDENT):
 
 
 def target_freqs(mhz):
-    """Community recipe: 400/800 plus 1000..mhz step 100."""
+    """OPP children in Hz, or None to leave the stock table alone.
+
+    400/800 MHz come from GPLL0 (+divider) and are exact. Higher steps are
+    members of A53_PLL_FREQS_HZ so cpufreq's target and the PLL's find_freq
+    agree. If `mhz` itself is not a PLL rate, also include the next rate up
+    within 1% — that is what clk_set_rate rounds to (1200 -> 1209.6).
+    """
     if mhz is None or mhz <= 0:
         return None
     if mhz < 1000:
         return None          # stock table already covers <= 998.4
-    freqs = [400, 800]
-    f = 1000
-    while f <= mhz:
-        freqs.append(f)
-        f += 100
+    freqs = [400000000, 800000000]
+    limit = mhz * 1000000
+    for hz in A53_PLL_FREQS_HZ:
+        if hz <= limit:
+            freqs.append(hz)
+    if limit not in A53_PLL_FREQS_HZ:
+        nxt = next((h for h in A53_PLL_FREQS_HZ if h > limit), None)
+        if nxt is not None and nxt - limit <= limit // 100:
+            freqs.append(nxt)
     return sorted(set(freqs))
 
 
@@ -320,9 +345,10 @@ def main():
     if args.self_test:
         ok = True
         o = transform(FIXTURE_DTS, {"opp_mhz": 1200, "release_memory": True})
+        # Stock 998.4 stays (it is a real PLL rate); only non-PLL/low stock goes.
         for pat in [re.compile(r"^\s*([\w.-]+:\s*)?mpss@"),
                     re.compile(r"^\s*(venus|mba)(@[0-9a-fA-Fx,.-]+)?\s*\{"),
-                    re.compile(r"\bopp-998400000\b"),
+                    re.compile(r"\bopp-200000000\b"),
                     re.compile(r"mpss_mem")]:
             if pat.search(o):
                 print("FAIL: %s still present" % pat.pattern)
@@ -334,13 +360,14 @@ def main():
         if "memory-region = <&wcnss_mem>;" not in o:
             print("FAIL: pronto wcnss memory-region lost")
             ok = False
-        for f in (400, 800, 1000, 1100, 1200):
-            if "opp-%d {" % (f * 1000000) not in o:
-                print("FAIL: missing opp-%d" % (f * 1000000))
+        for f in (400000000, 800000000, 998400000, 1094400000,
+                  1152000000, 1190400000, 1209600000):
+            if "opp-%d {" % f not in o:
+                print("FAIL: missing opp-%d" % f)
                 ok = False
-        for f in (200, 998400000):
+        for f in (200000000, 1000000000, 1100000000, 1200000000):
             if "opp-%d {" % f in o:
-                print("FAIL: stock opp-%d should be gone" % f)
+                print("FAIL: non-PLL opp-%d should be gone" % f)
                 ok = False
         if "opp-shared;" not in o:
             print("FAIL: missing opp-shared")
@@ -349,6 +376,9 @@ def main():
         o2 = transform(FIXTURE_DTS, {"opp_mhz": 800, "release_memory": False})
         if "opp-998400000" not in o2:
             print("FAIL: transformed despite opp-mhz<=stock")
+            ok = False
+        if "opp-200000000" not in o2:
+            print("FAIL: stock low OPP removed despite opp-mhz<=stock")
             ok = False
         if "mpss_mem: mpss@86800000" not in o2:
             print("FAIL: reserved-memory accidentally removed")
