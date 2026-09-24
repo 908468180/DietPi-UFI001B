@@ -29,3 +29,4 @@ AUTO_SETUP_CUSTOM_SCRIPT_EXEC=/boot/Automation_Custom_PreScript.sh
 # (dietpi-drive_manager / dietpi-set_swapfile).
 AUTO_SETUP_SWAPFILE_SIZE=256
 AUTO_SETUP_SWAPFILE_LOCATION=zram
+
